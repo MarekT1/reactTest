@@ -9,14 +9,12 @@ import Popover from '@mui/material/Popover'
 import Select from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
+import { PastDateRangePicker } from './PastDateRangePicker'
 import { PastToTodayDatePicker } from './PastToTodayDatePicker'
+import { getDefaultDateRange } from './dateRange'
 
 function defaultFromDate(): Date {
-  const today = new Date()
-  const day = today.getDate()
-  const cursor = new Date(today.getFullYear(), today.getMonth() - 1, 1)
-  const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()
-  return new Date(cursor.getFullYear(), cursor.getMonth(), Math.min(day, lastDay))
+  return getDefaultDateRange()[0]
 }
 
 const now = new Date()
@@ -37,6 +35,9 @@ const createdTime = new Intl.DateTimeFormat('en-GB', {
 const rejectReasons = ['reason 1', 'Reason 2'] as const
 
 function App() {
+  const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() =>
+    getDefaultDateRange(),
+  )
   const [fromDate, setFromDate] = useState<Date | null>(() => defaultFromDate())
   const [rejectAnchorEl, setRejectAnchorEl] = useState<HTMLButtonElement | null>(
     null,
@@ -124,6 +125,7 @@ function App() {
           mt: 2,
         }}
       >
+        <PastDateRangePicker value={dateRange} onChange={setDateRange} />
         <PastToTodayDatePicker value={fromDate} onChange={setFromDate} />
         <Button
           variant="contained"
