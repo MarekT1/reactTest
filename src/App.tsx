@@ -10,7 +10,7 @@ import Select from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
 import { DateRangePicker } from './DateRangePicker'
-import { PastToTodayDatePicker } from './PastToTodayDatePicker'
+import { DatePicker } from './DatePicker'
 import { getDefaultDateRange } from './dateRange'
 
 function defaultFromDate(): Date {
@@ -131,7 +131,7 @@ function App() {
           useToday
           disableFuture
         />
-        <PastToTodayDatePicker value={fromDate} onChange={setFromDate} />
+        <DatePicker value={fromDate} onChange={setFromDate} />
         <Button
           variant="contained"
           color="error"
