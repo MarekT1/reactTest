@@ -9,7 +9,7 @@ import Popover from '@mui/material/Popover'
 import Select from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
 import { useState } from 'react'
-import { PastDateRangePicker } from './PastDateRangePicker'
+import { DateRangePicker } from './DateRangePicker'
 import { PastToTodayDatePicker } from './PastToTodayDatePicker'
 import { getDefaultDateRange } from './dateRange'
 
@@ -125,7 +125,12 @@ function App() {
           mt: 2,
         }}
       >
-        <PastDateRangePicker value={dateRange} onChange={setDateRange} />
+        <DateRangePicker
+          value={dateRange}
+          onChange={setDateRange}
+          useToday
+          disableFuture
+        />
         <PastToTodayDatePicker value={fromDate} onChange={setFromDate} />
         <Button
           variant="contained"
