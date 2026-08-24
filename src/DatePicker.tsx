@@ -23,6 +23,7 @@ import {
 } from 'react'
 import { PickerActionBar } from './PickerActionBar'
 import { PickerCalendarHeader } from './PickerCalendarHeader'
+import { PickerTheme, pickerPrimaryCssVars } from './pickerTheme'
 
 export type DatePickerProps = {
   value: Date | null
@@ -116,59 +117,56 @@ export function DatePicker({ value, onChange, disableFuture = false }: DatePicke
   const [open, setOpen] = useState(false)
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-      <DesktopDatePicker
-        value={pickerValue}
-        onChange={(nextValue) => onChange(nextValue ? nextValue.toDate() : null)}
-        open={open}
-        onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
-        disableOpenPicker
-        disableFuture={disableFuture}
-        closeOnSelect={false}
-        showDaysOutsideCurrentMonth
-        fixedWeekNumber={6}
-        views={['day']}
-        openTo="day"
-        format="DD.MM.YYYY"
-        enableAccessibleFieldDOMStructure={false}
-        slots={{
-          field: DateField as DesktopDatePickerSlots<Dayjs>['field'],
-          actionBar: DateActionBar,
-          calendarHeader: DateCalendarHeader,
-        }}
-        slotProps={{
-          field: {
-            onClick: () => setOpen((isOpen) => !isOpen),
-          } as DateFieldProps,
-          actionBar: {
-            actions: ['clear', 'cancel', 'accept'],
-          },
-          popper: {
-            placement: 'bottom-start',
-          },
-        }}
-        sx={{
-          '& .MuiDateCalendar-root': {
-            overflow: 'hidden',
-            position: 'relative',
-          },
-          '& .MuiDayCalendar-header': {
-            mt: 0,
-            pt: 0,
-          },
-          '& .MuiPickersDay-root.Mui-selected': {
-            backgroundColor: '#1976d2',
-            color: '#fff',
-            '&:hover': {
-              backgroundColor: '#1565c0',
+    <PickerTheme>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+        <DesktopDatePicker
+          value={pickerValue}
+          onChange={(nextValue) => onChange(nextValue ? nextValue.toDate() : null)}
+          open={open}
+          onOpen={() => setOpen(true)}
+          onClose={() => setOpen(false)}
+          disableOpenPicker
+          disableFuture={disableFuture}
+          closeOnSelect={false}
+          showDaysOutsideCurrentMonth
+          fixedWeekNumber={6}
+          views={['day']}
+          openTo="day"
+          format="DD.MM.YYYY"
+          enableAccessibleFieldDOMStructure={false}
+          slots={{
+            field: DateField as DesktopDatePickerSlots<Dayjs>['field'],
+            actionBar: DateActionBar,
+            calendarHeader: DateCalendarHeader,
+          }}
+          slotProps={{
+            field: {
+              onClick: () => setOpen((isOpen) => !isOpen),
+            } as DateFieldProps,
+            actionBar: {
+              actions: ['clear', 'cancel', 'accept'],
             },
-            '&:focus': {
-              backgroundColor: '#1565c0',
+            popper: {
+              placement: 'bottom-start',
+              sx: pickerPrimaryCssVars,
             },
-          },
-        }}
-      />
-    </LocalizationProvider>
+            desktopPaper: {
+              sx: pickerPrimaryCssVars,
+            },
+          }}
+          sx={{
+            ...pickerPrimaryCssVars,
+            '& .MuiDateCalendar-root': {
+              overflow: 'hidden',
+              position: 'relative',
+            },
+            '& .MuiDayCalendar-header': {
+              mt: 0,
+              pt: 0,
+            },
+          }}
+        />
+      </LocalizationProvider>
+    </PickerTheme>
   )
 }

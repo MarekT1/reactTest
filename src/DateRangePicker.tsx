@@ -27,6 +27,7 @@ import {
 import { PickerActionBar } from './PickerActionBar'
 import { PickerCalendarHeader } from './PickerCalendarHeader'
 import { getDefaultDateRange } from './dateRange'
+import { PickerTheme, pickerPrimaryCssVars } from './pickerTheme'
 
 const licenseKey = import.meta.env.VITE_MUI_X_LICENSE_KEY
 if (typeof licenseKey === 'string' && licenseKey.length > 0) {
@@ -193,61 +194,54 @@ export function DateRangePicker({
   const pickerValue = useMemo(() => toDayjsRange(value), [value])
 
   return (
-    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
-      <DesktopDateRangePicker
-        value={pickerValue}
-        onChange={(nextValue) => onChange(toDateRange(nextValue))}
-        calendars={2}
-        disableFuture={disableFuture}
-        closeOnSelect={false}
-        showDaysOutsideCurrentMonth
-        fixedWeekNumber={6}
-        format="DD.MM.YYYY"
-        enableAccessibleFieldDOMStructure={false}
-        slots={{
-          field: DateRangeField as DesktopDateRangePickerSlots<Dayjs>['field'],
-          actionBar: DateRangeActionBar as DesktopDateRangePickerSlots<Dayjs>['actionBar'],
-          calendarHeader: RangeCalendarHeader,
-        }}
-        slotProps={{
-          field: {
-            useToday,
-          } as DateRangeFieldProps,
-          actionBar: {
-            actions: ['clear', 'cancel', 'accept'],
-            onResetToDefault: () =>
-              onChange(useToday ? toDateRange(getDefaultDayjsRange()) : [null, null]),
-            incomplete: pickerValue[0] == null || pickerValue[1] == null,
-          } as DateRangeActionBarProps,
-          popper: {
-            placement: 'bottom-start',
-          },
-        }}
-        sx={{
-          '& .MuiDateRangeCalendar-monthContainer': {
-            overflow: 'hidden',
-            position: 'relative',
-          },
-          '& .MuiDayCalendar-header': {
-            mt: 0,
-            pt: 0,
-          },
-          '& .MuiDateRangePickerDay-rangeIntervalDayHighlight': {
-            backgroundColor: 'rgba(25, 118, 210, 0.12)',
-            color: 'inherit',
-          },
-          '& .MuiPickersDay-root.Mui-selected': {
-            backgroundColor: '#1976d2',
-            color: '#fff',
-            '&:hover': {
-              backgroundColor: '#1565c0',
+    <PickerTheme>
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+        <DesktopDateRangePicker
+          value={pickerValue}
+          onChange={(nextValue) => onChange(toDateRange(nextValue))}
+          calendars={2}
+          disableFuture={disableFuture}
+          closeOnSelect={false}
+          showDaysOutsideCurrentMonth
+          fixedWeekNumber={6}
+          format="DD.MM.YYYY"
+          enableAccessibleFieldDOMStructure={false}
+          slots={{
+            field: DateRangeField as DesktopDateRangePickerSlots<Dayjs>['field'],
+            actionBar: DateRangeActionBar as DesktopDateRangePickerSlots<Dayjs>['actionBar'],
+            calendarHeader: RangeCalendarHeader,
+          }}
+          slotProps={{
+            field: {
+              useToday,
+            } as DateRangeFieldProps,
+            actionBar: {
+              actions: ['clear', 'cancel', 'accept'],
+              onResetToDefault: () =>
+                onChange(useToday ? toDateRange(getDefaultDayjsRange()) : [null, null]),
+              incomplete: pickerValue[0] == null || pickerValue[1] == null,
+            } as DateRangeActionBarProps,
+            popper: {
+              placement: 'bottom-start',
+              sx: pickerPrimaryCssVars,
             },
-            '&:focus': {
-              backgroundColor: '#1565c0',
+            desktopPaper: {
+              sx: pickerPrimaryCssVars,
             },
-          },
-        }}
-      />
-    </LocalizationProvider>
+          }}
+          sx={{
+            ...pickerPrimaryCssVars,
+            '& .MuiDateRangeCalendar-monthContainer': {
+              overflow: 'hidden',
+              position: 'relative',
+            },
+            '& .MuiDayCalendar-header': {
+              mt: 0,
+              pt: 0,
+            },
+          }}
+        />
+      </LocalizationProvider>
+    </PickerTheme>
   )
 }

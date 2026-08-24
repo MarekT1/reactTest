@@ -202,11 +202,6 @@ export function PickerCalendarHeader({
                       textTransform: 'none',
                       borderRadius: 8,
                       minWidth: 0,
-                      ...(selected && {
-                        bgcolor: '#1976d2',
-                        color: '#fff',
-                        '&:hover': { bgcolor: '#1565c0' },
-                      }),
                     }}
                   >
                     {label}
@@ -228,11 +223,6 @@ export function PickerCalendarHeader({
                       textTransform: 'none',
                       borderRadius: 8,
                       minWidth: 0,
-                      ...(selected && {
-                        bgcolor: '#1976d2',
-                        color: '#fff',
-                        '&:hover': { bgcolor: '#1565c0' },
-                      }),
                     }}
                   >
                     {year}
