@@ -26,20 +26,22 @@ type ThemeWithVars = Theme & {
   cssVariables?: unknown
 }
 
+function omitCssVarKeys(theme: ThemeWithVars) {
+  const rest = { ...theme }
+  delete rest.colorSchemes
+  delete rest.vars
+  delete rest.cssVariables
+  return rest as Omit<ThemeWithVars, 'colorSchemes' | 'vars' | 'cssVariables'>
+}
+
 export function createPickerTheme(outerTheme: Theme) {
-  const {
-    colorSchemes: _colorSchemes,
-    vars: _vars,
-    cssVariables: _cssVariables,
-    ...outer
-  } = outerTheme as ThemeWithVars
-  const next = createTheme(outer, {
+  const next = createTheme(omitCssVarKeys(outerTheme as ThemeWithVars), {
     palette: {
       primary: PICKER_PRIMARY,
     },
   }) as ThemeWithVars
-  const { colorSchemes: _nextSchemes, vars: _nextVars, ...rest } = next
-  return { ...rest, vars: null }
+  // `vars: null` stops CSS-variable themes from reading app primary off :root.
+  return { ...omitCssVarKeys(next), vars: null }
 }
 
 export function PickerTheme({ children }: { children: ReactNode }) {
