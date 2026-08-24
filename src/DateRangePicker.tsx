@@ -179,6 +179,7 @@ function DateRangeActionBar(props: DateRangeActionBarProps) {
       onCancel={onCancel}
       onAccept={onAccept}
       acceptDisabled={incomplete}
+      clearUnderEndPanel
     />
   )
 }
