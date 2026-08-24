@@ -8,9 +8,15 @@ import MenuItem from '@mui/material/MenuItem'
 import Popover from '@mui/material/Popover'
 import Select from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { DesktopDateRangePicker } from '@mui/x-date-pickers-pro/DesktopDateRangePicker'
+import type { DateRange } from '@mui/x-date-pickers-pro/models'
+import dayjs, { Dayjs } from 'dayjs'
+import 'dayjs/locale/en-gb'
 import { useState } from 'react'
-import { DateRangePicker } from './DateRangePicker'
 import { DatePicker } from './DatePicker'
+import { DateRangePicker } from './DateRangePicker'
 import { getDefaultDateRange } from './dateRange'
 
 function defaultFromDate(): Date {
@@ -35,6 +41,12 @@ const createdTime = new Intl.DateTimeFormat('en-GB', {
 const rejectReasons = ['reason 1', 'Reason 2'] as const
 
 function App() {
+  const [defaultDateRange, setDefaultDateRange] = useState<DateRange<Dayjs>>(
+    () => {
+      const [from, to] = getDefaultDateRange()
+      return [dayjs(from), dayjs(to)]
+    },
+  )
   const [dateRange, setDateRange] = useState<[Date | null, Date | null]>(() =>
     getDefaultDateRange(),
   )
@@ -125,6 +137,15 @@ function App() {
           mt: 2,
         }}
       >
+        <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="en-gb">
+          <DesktopDateRangePicker
+            value={defaultDateRange}
+            onChange={(nextValue) => setDefaultDateRange(nextValue)}
+            slotProps={{
+              textField: { size: 'small' },
+            }}
+          />
+        </LocalizationProvider>
         <DateRangePicker
           value={dateRange}
           onChange={setDateRange}

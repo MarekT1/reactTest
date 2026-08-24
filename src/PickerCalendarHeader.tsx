@@ -1,9 +1,8 @@
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import ClickAwayListener from '@mui/material/ClickAwayListener'
-import Paper from '@mui/material/Paper'
 import dayjs, { Dayjs } from 'dayjs'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { HeaderStepper } from './DatePickerHeaderStepper'
 
 const MONTH_LABELS = [
@@ -97,14 +96,28 @@ export function PickerCalendarHeader({
 
   const nextMonthDisabled = disableFuture && isMonthAfterToday(current.add(1, 'month'))
   const nextYearDisabled = disableFuture && isMonthAfterToday(current.add(1, 'year'))
-  const yearListRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    if (list == null) {
+      return
+    }
+    const header = headerRef.current
+    const overlay = overlayRef.current
+    const pane = header?.parentElement
+    if (!header || !overlay || !pane) {
+      return
+    }
+    overlay.style.height = `${pane.clientHeight - header.offsetHeight}px`
+  }, [list, monthDate])
 
   useEffect(() => {
     if (list !== 'year') {
       return
     }
     const selected = selectedYearRef.current
-    const container = yearListRef.current
+    const container = overlayRef.current
     if (!selected || !container) {
       return
     }
@@ -117,6 +130,7 @@ export function PickerCalendarHeader({
   return (
     <ClickAwayListener onClickAway={() => setList(null)}>
       <Box
+        ref={headerRef}
         className={className}
         sx={{
           position: 'relative',
@@ -128,7 +142,6 @@ export function PickerCalendarHeader({
           pr: '14px',
           pt: '14px',
           pb: '10px',
-          overflow: 'visible',
         }}
       >
         <HeaderStepper
@@ -155,65 +168,78 @@ export function PickerCalendarHeader({
         />
 
         {list != null && (
-          <Paper
-            elevation={0}
+          <Box
+            ref={overlayRef}
             sx={{
               position: 'absolute',
               top: '100%',
-              left: 8,
-              right: 8,
+              left: 0,
+              right: 0,
               zIndex: 3,
               bgcolor: 'background.paper',
-              boxShadow: 3,
-              p: 1,
-              maxHeight: 280,
               overflowY: 'auto',
+              p: 1,
+              boxSizing: 'border-box',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gridAutoRows: 'minmax(40px, auto)',
+              alignContent: 'start',
+              gap: 0.5,
             }}
-            ref={list === 'year' ? yearListRef : undefined}
           >
-            <Box
-              sx={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 0.5,
-              }}
-            >
-              {list === 'month' &&
-                MONTH_SHORT_LABELS.map((label, monthIdx) => {
-                  const candidate = monthDate.month(monthIdx)
-                  const disabled = disableFuture && isMonthAfterToday(candidate)
-                  const selected = monthDate.month() === monthIdx
-                  return (
-                    <Button
-                      key={label}
-                      disabled={disabled}
-                      variant={selected ? 'contained' : 'text'}
-                      onClick={() => goToThisCalendarMonth(candidate)}
-                      sx={{ textTransform: 'none', borderRadius: 4, minWidth: 0 }}
-                    >
-                      {label}
-                    </Button>
-                  )
-                })}
-              {list === 'year' &&
-                years.map((year) => {
-                  const selected = monthDate.year() === year
-                  const disabled = disableFuture && year > todayYear
-                  return (
-                    <Button
-                      key={year}
-                      ref={selected ? selectedYearRef : undefined}
-                      disabled={disabled}
-                      variant={selected ? 'contained' : 'text'}
-                      onClick={() => goToThisCalendarMonth(monthDate.year(year))}
-                      sx={{ textTransform: 'none', borderRadius: 4, minWidth: 0 }}
-                    >
-                      {year}
-                    </Button>
-                  )
-                })}
-            </Box>
-          </Paper>
+            {list === 'month' &&
+              MONTH_SHORT_LABELS.map((label, monthIdx) => {
+                const candidate = monthDate.month(monthIdx)
+                const disabled = disableFuture && isMonthAfterToday(candidate)
+                const selected = monthDate.month() === monthIdx
+                return (
+                  <Button
+                    key={label}
+                    disabled={disabled}
+                    variant={selected ? 'contained' : 'text'}
+                    onClick={() => goToThisCalendarMonth(candidate)}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 8,
+                      minWidth: 0,
+                      ...(selected && {
+                        bgcolor: '#1976d2',
+                        color: '#fff',
+                        '&:hover': { bgcolor: '#1565c0' },
+                      }),
+                    }}
+                  >
+                    {label}
+                  </Button>
+                )
+              })}
+            {list === 'year' &&
+              years.map((year) => {
+                const selected = monthDate.year() === year
+                const disabled = disableFuture && year > todayYear
+                return (
+                  <Button
+                    key={year}
+                    ref={selected ? selectedYearRef : undefined}
+                    disabled={disabled}
+                    variant={selected ? 'contained' : 'text'}
+                    onClick={() => goToThisCalendarMonth(monthDate.year(year))}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: 8,
+                      minWidth: 0,
+                      ...(selected && {
+                        bgcolor: '#1976d2',
+                        color: '#fff',
+                        '&:hover': { bgcolor: '#1565c0' },
+                      }),
+                    }}
+                  >
+                    {year}
+                  </Button>
+                )
+              })}
+          </Box>
         )}
         <Box component="span" id={labelId} sx={{ display: 'none' }}>
           {monthDate.format('MMMM YYYY')}

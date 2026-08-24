@@ -225,12 +225,26 @@ export function DateRangePicker({
         }}
         sx={{
           '& .MuiDateRangeCalendar-monthContainer': {
-            overflow: 'visible',
+            overflow: 'hidden',
             position: 'relative',
           },
           '& .MuiDayCalendar-header': {
             mt: 0,
             pt: 0,
+          },
+          '& .MuiDateRangePickerDay-rangeIntervalDayHighlight': {
+            backgroundColor: 'rgba(25, 118, 210, 0.12)',
+            color: 'inherit',
+          },
+          '& .MuiPickersDay-root.Mui-selected': {
+            backgroundColor: '#1976d2',
+            color: '#fff',
+            '&:hover': {
+              backgroundColor: '#1565c0',
+            },
+            '&:focus': {
+              backgroundColor: '#1565c0',
+            },
           },
         }}
       />

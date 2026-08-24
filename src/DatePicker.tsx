@@ -150,11 +150,22 @@ export function DatePicker({ value, onChange, disableFuture = false }: DatePicke
         }}
         sx={{
           '& .MuiDateCalendar-root': {
-            overflow: 'visible',
+            overflow: 'hidden',
+            position: 'relative',
           },
           '& .MuiDayCalendar-header': {
             mt: 0,
             pt: 0,
+          },
+          '& .MuiPickersDay-root.Mui-selected': {
+            backgroundColor: '#1976d2',
+            color: '#fff',
+            '&:hover': {
+              backgroundColor: '#1565c0',
+            },
+            '&:focus': {
+              backgroundColor: '#1565c0',
+            },
           },
         }}
       />
