@@ -8,7 +8,6 @@ import type { Ref } from 'react'
 
 export function HeaderStepper({
   label,
-  labelColor,
   listOpen,
   prevDisabled,
   nextDisabled,
@@ -20,7 +19,6 @@ export function HeaderStepper({
   onToggleList,
 }: {
   label: string
-  labelColor?: string
   listOpen: boolean
   prevDisabled?: boolean
   nextDisabled?: boolean
@@ -62,7 +60,7 @@ export function HeaderStepper({
           minWidth: 0,
           px: 0.5,
           textTransform: 'none',
-          color: labelColor ?? 'text.primary',
+          color: 'text.primary',
           fontWeight: 500,
           fontSize: 14,
           lineHeight: 1.2,

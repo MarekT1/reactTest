@@ -117,7 +117,6 @@ function RangeCalendarHeader(props: PickersRangeCalendarHeaderProps<Dayjs>) {
       className={props.className}
       labelId={props.labelId}
       disableFuture={props.disableFuture}
-      monthLabelColor="#999999"
     />
   )
 }
@@ -420,9 +419,13 @@ export function DateRangePicker({
                 boxShadow: 'none',
                 overflow: 'hidden',
                 '& .MuiDayCalendar-weekDayLabel': {
-                  color: '#333333',
+                  color: '#999999',
                   fontWeight: 500,
                 },
+                '& .MuiPickersDay-root:not(.Mui-selected):not(.Mui-disabled):not(.MuiPickersDay-dayOutsideMonth)':
+                  {
+                    color: '#333333',
+                  },
               },
             },
           }}

@@ -55,7 +55,6 @@ export function PickerCalendarHeader({
   className,
   labelId,
   disableFuture = false,
-  monthLabelColor,
 }: {
   month: Dayjs
   monthIndex?: number
@@ -65,7 +64,6 @@ export function PickerCalendarHeader({
   className?: string
   labelId?: string
   disableFuture?: boolean
-  monthLabelColor?: string
 }) {
   const monthDate = dayjs(month)
   const current = dayjs(currentMonth)
@@ -148,7 +146,6 @@ export function PickerCalendarHeader({
       >
         <HeaderStepper
           label={MONTH_LABELS[monthDate.month()]}
-          labelColor={monthLabelColor}
           listOpen={list === 'month'}
           nextDisabled={nextMonthDisabled}
           prevAriaLabel="Previous month"
