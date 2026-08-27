@@ -153,7 +153,7 @@ type RangeFieldInputExtraProps = {
 }
 
 const RangeFieldInput = forwardRef<HTMLInputElement, InputBaseComponentProps>(
-  function RangeFieldInput(props, ref) {
+  function RangeFieldInputComponent(props, ref) {
     const {
       startText,
       endText,
@@ -163,11 +163,12 @@ const RangeFieldInput = forwardRef<HTMLInputElement, InputBaseComponentProps>(
       startSpanRef,
       endSpanRef,
       className,
-      ownerState: _ownerState,
       ...other
     } = props as InputBaseComponentProps & RangeFieldInputExtraProps & {
       ownerState?: unknown
     }
+    const inputProps = { ...other }
+    delete inputProps.ownerState
 
     return (
       <Box
@@ -201,7 +202,7 @@ const RangeFieldInput = forwardRef<HTMLInputElement, InputBaseComponentProps>(
         <Box
           component="input"
           ref={ref}
-          {...other}
+          {...inputProps}
           aria-hidden
           tabIndex={-1}
           sx={{
@@ -219,7 +220,7 @@ const RangeFieldInput = forwardRef<HTMLInputElement, InputBaseComponentProps>(
 )
 
 const DateRangeField = forwardRef<HTMLDivElement, DateRangeFieldProps>(
-  function DateRangeField(props, ref) {
+  function DateRangeFieldComponent(props, ref) {
     const {
       value,
       disabled,
@@ -279,46 +280,48 @@ const DateRangeField = forwardRef<HTMLDivElement, DateRangeFieldProps>(
         focused={focused}
         onClick={onClick}
         onKeyDown={onKeyDown}
-        InputProps={{
-          ref: handleInputRef,
-          readOnly: true,
-          startAdornment: (
-            <InputAdornment position="start" sx={{ mr: 0.75 }}>
-              <CalendarMonthIcon sx={{ fontSize: 20, color: 'action.active' }} />
-            </InputAdornment>
-          ),
-          endAdornment: (
-            <Box
-              aria-hidden
-              sx={{
-                display: open && activeBar.width > 0 ? 'block' : 'none',
-                position: 'absolute',
-                left: `${activeBar.left}px`,
-                width: `${activeBar.width}px`,
-                height: '2px',
-                bottom: '2px',
-                borderTopLeftRadius: '2px',
-                borderTopRightRadius: '2px',
-                bgcolor: 'primary.main',
-                pointerEvents: 'none',
-                transition: (theme) =>
-                  theme.transitions.create(['left', 'width'], {
-                    duration: theme.transitions.duration.shortest,
-                  }),
-              }}
-            />
-          ),
-          inputComponent: RangeFieldInput,
-          inputProps: {
-            startText,
-            endText,
-            startEmpty,
-            endEmpty,
-            onRangePositionChange,
-            startSpanRef: startRef,
-            endSpanRef: endRef,
-            'aria-label': 'Date range',
-          } as RangeFieldInputExtraProps & { 'aria-label': string },
+        slotProps={{
+          input: {
+            ref: handleInputRef,
+            readOnly: true,
+            startAdornment: (
+              <InputAdornment position="start" sx={{ mr: 0.75 }}>
+                <CalendarMonthIcon sx={{ fontSize: 20, color: 'action.active' }} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <Box
+                aria-hidden
+                sx={{
+                  display: open && activeBar.width > 0 ? 'block' : 'none',
+                  position: 'absolute',
+                  left: `${activeBar.left}px`,
+                  width: `${activeBar.width}px`,
+                  height: '2px',
+                  bottom: '2px',
+                  borderTopLeftRadius: '2px',
+                  borderTopRightRadius: '2px',
+                  bgcolor: 'primary.main',
+                  pointerEvents: 'none',
+                  transition: (theme) =>
+                    theme.transitions.create(['left', 'width'], {
+                      duration: theme.transitions.duration.shortest,
+                    }),
+                }}
+              />
+            ),
+            inputComponent: RangeFieldInput,
+            inputProps: {
+              startText,
+              endText,
+              startEmpty,
+              endEmpty,
+              onRangePositionChange,
+              startSpanRef: startRef,
+              endSpanRef: endRef,
+              'aria-label': 'Date range',
+            } as RangeFieldInputExtraProps & { 'aria-label': string },
+          },
         }}
         sx={{
           width: 250,
@@ -412,11 +415,12 @@ export function DateRangePicker({
               sx: pickerPrimaryCssVars,
             },
             desktopPaper: {
+              elevation: 0,
               sx: {
                 ...pickerPrimaryCssVars,
                 borderRadius: '8px',
                 border: '1px solid #ccc',
-                boxShadow: 'none',
+                boxShadow: '0px 5px 5px -3px rgba(0, 0, 0, 0.2)',
                 overflow: 'hidden',
                 '& .MuiDayCalendar-weekDayLabel': {
                   color: '#999999',

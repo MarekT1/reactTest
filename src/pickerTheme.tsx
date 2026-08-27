@@ -39,6 +39,17 @@ export function createPickerTheme(outerTheme: Theme) {
     palette: {
       primary: PICKER_PRIMARY,
     },
+    components: {
+      // Same as MUI X v9 PickerDay: caption typography, then override line-height.
+      MuiPickersDay: {
+        styleOverrides: {
+          root: {
+            lineHeight: 1,
+            display: 'flex',
+          },
+        },
+      },
+    },
   }) as ThemeWithVars
   // `vars: null` stops CSS-variable themes from reading app primary off :root.
   return { ...omitCssVarKeys(next), vars: null }
