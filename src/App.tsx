@@ -1,12 +1,17 @@
+import BookmarkBorderIcon from '@mui/icons-material/BookmarkBorder'
 import EditIcon from '@mui/icons-material/Edit'
 import EventIcon from '@mui/icons-material/Event'
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined'
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
+import ListItemIcon from '@mui/material/ListItemIcon'
+import ListItemText from '@mui/material/ListItemText'
 import MenuItem from '@mui/material/MenuItem'
 import Popover from '@mui/material/Popover'
-import Select from '@mui/material/Select'
+import Select, { type SelectChangeEvent } from '@mui/material/Select'
 import Typography from '@mui/material/Typography'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -40,6 +45,27 @@ const createdTime = new Intl.DateTimeFormat('en-GB', {
 
 const rejectReasons = ['reason 1', 'Reason 2'] as const
 
+const typeOptions = [
+  {
+    value: 'contact',
+    label: 'Contact',
+    secondary: 'Call, SMS, Document',
+    icon: PersonOutlineIcon,
+  },
+  {
+    value: 'case',
+    label: 'Case',
+    icon: FolderOutlinedIcon,
+  },
+  {
+    value: 'reference',
+    label: 'Reference',
+    icon: BookmarkBorderIcon,
+  },
+] as const
+
+type TypeOptionValue = (typeof typeOptions)[number]['value']
+
 function App() {
   const [defaultDateRange, setDefaultDateRange] = useState<DateRange<Dayjs>>(
     () => {
@@ -55,6 +81,10 @@ function App() {
     null,
   )
   const [rejectReason, setRejectReason] = useState<string>('')
+  const [simpleType, setSimpleType] = useState<TypeOptionValue | ''>('')
+  const [richType, setRichType] = useState<TypeOptionValue | ''>('')
+
+  const selectedRichOption = typeOptions.find((option) => option.value === richType)
 
   const rejectPopoverOpen = Boolean(rejectAnchorEl)
 
@@ -164,6 +194,83 @@ function App() {
         <Button variant="contained" color="primary" size="small">
           Confirm changes
         </Button>
+      </Box>
+
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 2,
+          mt: 2,
+        }}
+      >
+        <FormControl size="small" sx={{ minWidth: 180 }}>
+          <InputLabel id="simple-type-label">Type</InputLabel>
+          <Select
+            labelId="simple-type-label"
+            label="Type"
+            value={simpleType}
+            onChange={(event: SelectChangeEvent<TypeOptionValue | ''>) =>
+              setSimpleType(event.target.value as TypeOptionValue | '')
+            }
+          >
+            {typeOptions.map((option) => (
+              <MenuItem key={option.value} value={option.value}>
+                {option.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl size="small" sx={{ minWidth: 220 }}>
+          <InputLabel id="rich-type-label">Type</InputLabel>
+          <Select
+            labelId="rich-type-label"
+            label="Type"
+            value={richType}
+            onChange={(event: SelectChangeEvent<TypeOptionValue | ''>) =>
+              setRichType(event.target.value as TypeOptionValue | '')
+            }
+            renderValue={() => {
+              if (!selectedRichOption) {
+                return ''
+              }
+              const Icon = selectedRichOption.icon
+              return (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Icon fontSize="small" />
+                  {selectedRichOption.label}
+                </Box>
+              )
+            }}
+            MenuProps={{
+              slotProps: {
+                paper: {
+                  sx: { minWidth: 240 },
+                },
+              },
+            }}
+          >
+            {typeOptions.map((option) => {
+              const Icon = option.icon
+              return (
+                <MenuItem key={option.value} value={option.value} sx={{ py: 1 }}>
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <Icon fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={option.label}
+                    secondary={'secondary' in option ? option.secondary : undefined}
+                    slotProps={{
+                      primary: { sx: { fontSize: 14, lineHeight: 1.3 } },
+                      secondary: { sx: { fontSize: 11, lineHeight: 1.3 } },
+                    }}
+                  />
+                </MenuItem>
+              )
+            })}
+          </Select>
+        </FormControl>
       </Box>
 
       <Popover
