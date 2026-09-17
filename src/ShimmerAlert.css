@@ -1,0 +1,37 @@
+@keyframes shimmer-alert-gloss-pan {
+  from {
+    transform: translate3d(-100%, 0, 0) skewX(-45deg);
+  }
+  to {
+    transform: translate3d(90%, 0, 0) skewX(-45deg);
+  }
+}
+
+.shimmer-alert {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.shimmer-alert__gloss {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 114%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+  transform-origin: center center;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.02) 22%,
+    rgba(255, 255, 255, 0.05) 48%,
+    rgba(255, 255, 255, 0.1) 72%,
+    rgba(255, 255, 255, 0.22) 88%,
+    rgba(255, 255, 255, 0.31) 95%,
+    rgba(255, 255, 255, 0.12) 98%,
+    transparent 100%
+  );
+  animation: shimmer-alert-gloss-pan 4s linear infinite;
+}

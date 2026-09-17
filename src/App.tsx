@@ -23,6 +23,7 @@ import { useState } from 'react'
 import { DatePicker } from './DatePicker'
 import { DateRangePicker } from './DateRangePicker'
 import { getDefaultDateRange } from './dateRange'
+import { ShimmerAlert } from './ShimmerAlert'
 
 function defaultFromDate(): Date {
   return getDefaultDateRange()[0]
@@ -83,6 +84,7 @@ function App() {
   const [rejectReason, setRejectReason] = useState<string>('')
   const [simpleType, setSimpleType] = useState<TypeOptionValue | ''>('')
   const [richType, setRichType] = useState<TypeOptionValue | ''>('')
+  const [showInfoAlert, setShowInfoAlert] = useState(true)
 
   const selectedRichOption = typeOptions.find((option) => option.value === richType)
 
@@ -95,6 +97,14 @@ function App() {
 
   return (
     <Box sx={{ width: '100%', px: 2, py: 1.5 }}>
+      {showInfoAlert ? (
+        <Box sx={{ mb: 2 }}>
+          <ShimmerAlert onGotIt={() => setShowInfoAlert(false)}>
+            This is an informational notice.
+          </ShimmerAlert>
+        </Box>
+      ) : null}
+
       <Box
         sx={{
           display: 'flex',
