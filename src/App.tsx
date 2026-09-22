@@ -98,11 +98,9 @@ function App() {
   return (
     <Box sx={{ width: '100%', px: 2, py: 1.5 }}>
       {showInfoAlert ? (
-        <Box sx={{ mb: 2 }}>
-          <ShimmerAlert onGotIt={() => setShowInfoAlert(false)}>
-            This is an informational notice.
-          </ShimmerAlert>
-        </Box>
+        <ShimmerAlert sx={{ mb: 2 }} onGotIt={() => setShowInfoAlert(false)}>
+          This is an informational notice.
+        </ShimmerAlert>
       ) : null}
 
       <Box
