@@ -1,9 +1,25 @@
-body {
+html,
+body,
+#root {
+  height: 100%;
   margin: 0;
 }
 
 #root {
-  min-height: 100vh;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+}
+
+.communicator-resize-handle {
+  width: 8px;
+  flex-shrink: 0;
+  background-color: rgba(0, 0, 0, 0.12);
+  cursor: col-resize;
+  transition: background-color 0.15s ease;
+}
+
+.communicator-resize-handle:hover,
+.communicator-resize-handle[data-active],
+.communicator-resize-handle[data-separator-active] {
+  background-color: rgba(25, 118, 210, 0.42);
 }
