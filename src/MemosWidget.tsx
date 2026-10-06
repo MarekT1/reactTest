@@ -423,6 +423,8 @@ export function MemosWidget() {
   }
 
   const products = memosQuery.data ?? []
+  const allExpanded =
+    products.length > 0 && products.every((product) => openIds.has(product.productId))
 
   return (
     <Box ref={widgetRef} data-memos-widget>
@@ -430,24 +432,14 @@ export function MemosWidget() {
         title="Memos"
         subheader="Jane Doe"
         action={
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <Button
-              size="small"
-              onClick={expandAll}
-              disabled={products.length === 0}
-              sx={{ minWidth: 0, px: 1, fontSize: '0.75rem', textTransform: 'none' }}
-            >
-              Expand all
-            </Button>
-            <Button
-              size="small"
-              onClick={collapseAll}
-              disabled={products.length === 0}
-              sx={{ minWidth: 0, px: 1, fontSize: '0.75rem', textTransform: 'none' }}
-            >
-              Collapse all
-            </Button>
-          </Box>
+          <Button
+            size="small"
+            onClick={allExpanded ? collapseAll : expandAll}
+            disabled={products.length === 0}
+            sx={{ minWidth: 0, px: 1, fontSize: '0.75rem', textTransform: 'none' }}
+          >
+            {allExpanded ? 'Collapse all' : 'Expand all'}
+          </Button>
         }
       >
         {memosQuery.isPending ? (

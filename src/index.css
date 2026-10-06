@@ -10,6 +10,13 @@ body,
   flex-direction: column;
 }
 
+.communicator-column-divider {
+  width: 8px;
+  flex-shrink: 0;
+  background-color: rgba(0, 0, 0, 0.12);
+  cursor: default;
+}
+
 .communicator-resize-handle {
   width: 8px;
   flex-shrink: 0;

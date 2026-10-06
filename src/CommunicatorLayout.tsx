@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 
 const PANEL_MIN_PX = 300
+const LEFT_COLUMN_PX = 300
 
 export type CommunicatorLayoutProps = {
   left: ReactNode
@@ -30,11 +31,19 @@ function Column({ children }: { children: ReactNode }) {
 export function CommunicatorLayout({ left, middle, right }: CommunicatorLayoutProps) {
   return (
     <Box sx={{ flex: 1, minHeight: 0, overflowX: 'auto' }}>
-      <Group orientation="horizontal" style={{ height: '100%', minWidth: 900 }}>
-        <Panel id="system" minSize={PANEL_MIN_PX} defaultSize="30%" style={{ overflow: 'auto' }}>
+      <Group orientation="horizontal" style={{ height: '100%', minWidth: 916 }}>
+        <Panel
+          id="system"
+          defaultSize={LEFT_COLUMN_PX}
+          minSize={LEFT_COLUMN_PX}
+          maxSize={LEFT_COLUMN_PX}
+          disabled
+          groupResizeBehavior="preserve-pixel-size"
+          style={{ overflow: 'auto' }}
+        >
           <Column>{left}</Column>
         </Panel>
-        <Separator className="communicator-resize-handle" />
+        <Separator disabled className="communicator-column-divider" />
         <Panel id="customer" minSize={PANEL_MIN_PX} defaultSize="40%" style={{ overflow: 'auto' }}>
           <Column>{middle}</Column>
         </Panel>
