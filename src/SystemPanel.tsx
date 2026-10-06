@@ -5,6 +5,7 @@ import SyncIcon from '@mui/icons-material/Sync'
 import Box from '@mui/material/Box'
 import Typography from '@mui/material/Typography'
 import { InfoCard } from './InfoCard'
+import { MemosWidget } from './MemosWidget'
 
 function MetaRow({ label, value }: { label: string; value: string }) {
   return (
@@ -55,6 +56,7 @@ export function SystemPanel() {
         <MetaRow label="Latency" value="42 ms" />
         <MetaRow label="Voice" value="Ready" />
       </InfoCard>
+      <MemosWidget />
     </>
   )
 }
