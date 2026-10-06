@@ -1,3 +1,4 @@
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -6,7 +7,7 @@ import Collapse from '@mui/material/Collapse'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type MouseEvent } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type MouseEvent } from 'react'
 import { InfoCard } from './InfoCard'
 import {
   getMemos,
@@ -15,6 +16,8 @@ import {
   saveMemo,
   type ProductMemo,
 } from './memosApi'
+
+const MEMO_MAX_LENGTH = 250
 
 function placeCaretAtEnd(el: HTMLInputElement | HTMLTextAreaElement) {
   const end = el.value.length
@@ -63,11 +66,17 @@ function scrollColumnForMemo(widget: HTMLElement, editor: HTMLElement) {
 function ProductMemoRow({
   product,
   open,
+  editing,
   onToggle,
+  onStartEdit,
+  onStopEdit,
 }: {
   product: ProductMemo
   open: boolean
+  editing: boolean
   onToggle: () => void
+  onStartEdit: (productId: string) => void
+  onStopEdit: (productId: string) => void
 }) {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -75,10 +84,27 @@ function ProductMemoRow({
   const editingRef = useRef(false)
   const pinCaretOnMouseUp = useRef(false)
   const openRef = useRef(open)
-  const [editing, setEditing] = useState(false)
-  const [showField, setShowField] = useState(true)
+  const [trackedEditing, setTrackedEditing] = useState(editing)
+  const [loadedMemo, setLoadedMemo] = useState(product.memo)
   const [draft, setDraft] = useState(product.memo)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  if (product.memo !== loadedMemo) {
+    setLoadedMemo(product.memo)
+    if (!editing) {
+      setDraft(product.memo)
+    }
+  }
+  if (editing !== trackedEditing) {
+    setTrackedEditing(editing)
+    if (!editing) {
+      setDraft(product.memo)
+    }
+  }
+  if (!editing) {
+    editingRef.current = false
+    pinCaretOnMouseUp.current = false
+  }
 
   const saveMutation = useMutation({
     mutationFn: saveMemo,
@@ -92,13 +118,13 @@ function ProductMemoRow({
     }
     editingRef.current = false
     pinCaretOnMouseUp.current = false
-    setEditing(false)
     setSaveError(null)
-    if (open) {
-      setDraft(product.memo)
-      setShowField(true)
+    if (!open) {
+      onStopEdit(product.productId)
+      return
     }
-  }, [open, product.memo])
+    setDraft(product.memo)
+  }, [open, product.memo, product.productId, onStopEdit])
 
   const revealInColumn = () => {
     const editor = editorRef.current
@@ -110,16 +136,16 @@ function ProductMemoRow({
   }
 
   useLayoutEffect(() => {
-    if (!open || !showField || !editing) {
+    if (!open || !editing) {
       return
     }
     const el = inputRef.current
-    if (!el || document.activeElement === el) {
+    if (!el) {
       return
     }
     el.focus()
     placeCaretAtEnd(el)
-  }, [open, showField, editing])
+  }, [open, editing])
 
   useLayoutEffect(() => {
     if (!editing) {
@@ -128,13 +154,10 @@ function ProductMemoRow({
     revealInColumn()
   }, [editing])
 
-  const showLoadedMessage = () => {
-    editingRef.current = false
-    pinCaretOnMouseUp.current = false
-    setEditing(false)
-    setDraft(product.memo)
-    setShowField(false)
+  const beginEditing = () => {
+    editingRef.current = true
     setSaveError(null)
+    onStartEdit(product.productId)
   }
 
   const toggle = () => {
@@ -148,10 +171,8 @@ function ProductMemoRow({
     }
     event.preventDefault()
     const el = event.currentTarget
-    editingRef.current = true
     pinCaretOnMouseUp.current = true
-    setEditing(true)
-    setSaveError(null)
+    beginEditing()
     el.focus()
     placeCaretAtEnd(el)
   }
@@ -169,36 +190,32 @@ function ProductMemoRow({
       return
     }
     const el = event.currentTarget
-    editingRef.current = true
-    setEditing(true)
-    setSaveError(null)
+    beginEditing()
     requestAnimationFrame(() => placeCaretAtEnd(el))
   }
 
   const handleCancel = () => {
-    showLoadedMessage()
+    setDraft(product.memo)
+    setSaveError(null)
+    inputRef.current?.blur()
+    onStopEdit(product.productId)
   }
 
   const handleSave = async () => {
+    if (draft.length > MEMO_MAX_LENGTH) {
+      return
+    }
     setSaveError(null)
     try {
       await saveMutation.mutateAsync({ productId: product.productId, memo: draft })
       await queryClient.invalidateQueries({ queryKey: memosQueryKey })
       editingRef.current = false
       pinCaretOnMouseUp.current = false
-      setEditing(false)
-      setShowField(false)
+      inputRef.current?.blur()
+      onStopEdit(product.productId)
     } catch {
       setSaveError('Could not save the memo.')
     }
-  }
-
-  const beginEditFromMessage = () => {
-    setDraft(product.memo)
-    setShowField(true)
-    setSaveError(null)
-    editingRef.current = true
-    setEditing(true)
   }
 
   return (
@@ -239,54 +256,62 @@ function ProductMemoRow({
       </Box>
       <Collapse in={open}>
         <Box ref={editorRef} sx={{ pb: 1 }}>
-          {showField ? (
-            <TextField
-              inputRef={inputRef}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              multiline
-              minRows={2}
-              fullWidth
-              size="small"
-              placeholder="Add a memo"
-              slotProps={{
-                htmlInput: {
-                  'aria-label': `Memo for ${product.productName}`,
-                  onMouseDown: handleMouseDown,
-                  onMouseUp: handleMouseUp,
-                  onFocus: handleFocus,
-                },
-              }}
-            />
-          ) : (
+          <TextField
+            inputRef={inputRef}
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            multiline
+            minRows={2}
+            fullWidth
+            size="small"
+            placeholder="Add a memo"
+            slotProps={{
+              htmlInput: {
+                'aria-label': `Memo for ${product.productName}`,
+                onMouseDown: handleMouseDown,
+                onMouseUp: handleMouseUp,
+                onFocus: handleFocus,
+              },
+            }}
+          />
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              mt: 0.5,
+            }}
+          >
+            {draft.length > MEMO_MAX_LENGTH ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+                <ErrorOutlineIcon color="error" sx={{ fontSize: 16 }} />
+                <Typography variant="caption" color="error">
+                  Message is too long
+                </Typography>
+              </Box>
+            ) : (
+              <Box />
+            )}
             <Typography
-              component="button"
-              type="button"
-              variant="body2"
-              onClick={beginEditFromMessage}
-              sx={{
-                display: 'block',
-                width: '100%',
-                p: 0,
-                border: 0,
-                bgcolor: 'transparent',
-                color: product.memo ? 'text.primary' : 'text.secondary',
-                font: 'inherit',
-                textAlign: 'left',
-                whiteSpace: 'pre-wrap',
-                cursor: 'text',
-              }}
+              variant="caption"
+              color={draft.length > MEMO_MAX_LENGTH ? 'error' : 'text.secondary'}
+              sx={{ flexShrink: 0 }}
             >
-              {product.memo || 'No memo'}
+              {draft.length}/{MEMO_MAX_LENGTH}
             </Typography>
-          )}
+          </Box>
           {editing ? (
             <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
               <Button
                 variant="contained"
                 size="small"
                 onClick={handleSave}
-                disabled={saveMutation.isPending || draft === product.memo}
+                disabled={
+                  saveMutation.isPending ||
+                  draft === product.memo ||
+                  draft.length > MEMO_MAX_LENGTH
+                }
               >
                 Save
               </Button>
@@ -316,7 +341,16 @@ export function MemosWidget() {
     queryKey: memosQueryKey,
     queryFn: () => getMemos({ productIds: janeDoeProductIds }),
   })
+  const widgetRef = useRef<HTMLDivElement | null>(null)
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => new Set())
+  const [expandScrollNonce, setExpandScrollNonce] = useState(0)
+  const [editingProductId, setEditingProductId] = useState<string | null>(null)
+  const startEdit = useCallback((productId: string) => {
+    setEditingProductId(productId)
+  }, [])
+  const stopEdit = useCallback((productId: string) => {
+    setEditingProductId((current) => (current === productId ? null : current))
+  }, [])
 
   const toggleProduct = (productId: string) => {
     setOpenIds((current) => {
@@ -332,7 +366,57 @@ export function MemosWidget() {
 
   const expandAll = () => {
     setOpenIds(new Set(memosQuery.data?.map((product) => product.productId) ?? []))
+    setExpandScrollNonce((nonce) => nonce + 1)
   }
+
+  useEffect(() => {
+    if (expandScrollNonce === 0) {
+      return
+    }
+    const widget = widgetRef.current
+    if (!widget) {
+      return
+    }
+
+    let finished = false
+    const finish = () => {
+      if (finished) {
+        return
+      }
+      finished = true
+      scrollColumnForMemo(widget, widget)
+    }
+
+    const collapses = [...widget.querySelectorAll<HTMLElement>('.MuiCollapse-root')].filter(
+      (node) => !node.classList.contains('MuiCollapse-entered'),
+    )
+    if (collapses.length === 0) {
+      finish()
+      return
+    }
+
+    let remaining = collapses.length
+    const timer = window.setTimeout(finish, 450)
+    const cleanups = collapses.map((node) => {
+      const onEnd = (event: TransitionEvent) => {
+        if (event.target !== node || event.propertyName !== 'height') {
+          return
+        }
+        remaining -= 1
+        if (remaining <= 0) {
+          window.clearTimeout(timer)
+          finish()
+        }
+      }
+      node.addEventListener('transitionend', onEnd)
+      return () => node.removeEventListener('transitionend', onEnd)
+    })
+
+    return () => {
+      window.clearTimeout(timer)
+      cleanups.forEach((cleanup) => cleanup())
+    }
+  }, [expandScrollNonce])
 
   const collapseAll = () => {
     setOpenIds(new Set())
@@ -341,7 +425,7 @@ export function MemosWidget() {
   const products = memosQuery.data ?? []
 
   return (
-    <Box data-memos-widget>
+    <Box ref={widgetRef} data-memos-widget>
       <InfoCard
         title="Memos"
         subheader="Jane Doe"
@@ -381,7 +465,10 @@ export function MemosWidget() {
             key={product.productId}
             product={product}
             open={openIds.has(product.productId)}
+            editing={editingProductId === product.productId}
             onToggle={() => toggleProduct(product.productId)}
+            onStartEdit={startEdit}
+            onStopEdit={stopEdit}
           />
         ))}
       </InfoCard>
