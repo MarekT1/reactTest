@@ -2,10 +2,17 @@ export const janeDoeProductIds = ['24018', '24019'] as const
 
 export const memosQueryKey = ['memos', janeDoeProductIds] as const
 
-export type ProductMemo = {
-  productId: string
-  productName: string
-  memo: string
+export type MemoRecord = {
+  message: string
+  operatorId: string
+  date: string
+  tag: string
+  accountId: string
+}
+
+const productNames: Record<string, string> = {
+  '24018': 'Personal current account',
+  '24019': 'Cash ISA',
 }
 
 type GetMemosRequest = {
@@ -17,21 +24,25 @@ type SaveMemoRequest = {
   memo: string
 }
 
-const products = new Map<string, ProductMemo>([
+const memos = new Map<string, MemoRecord>([
   [
     '24018',
     {
-      productId: '24018',
-      productName: 'Personal current account',
-      memo: 'Asked to keep the old address on file until 1 November.',
+      message: 'Asked to keep the old address on file until 1 November.',
+      operatorId: 'alex.novak',
+      date: '2026-10-06T09:15:00',
+      tag: 'address',
+      accountId: '24018',
     },
   ],
   [
     '24019',
     {
-      productId: '24019',
-      productName: 'Cash ISA',
-      memo: '',
+      message: '',
+      operatorId: '',
+      date: '',
+      tag: 'savings',
+      accountId: '24019',
     },
   ],
 ])
@@ -42,22 +53,34 @@ function delay(ms: number) {
   })
 }
 
-export async function getMemos({ productIds }: GetMemosRequest): Promise<ProductMemo[]> {
+export function productNameFor(accountId: string) {
+  return productNames[accountId] ?? `Product ${accountId}`
+}
+
+export async function getMemos({ productIds }: GetMemosRequest): Promise<MemoRecord[]> {
   await delay(200)
   return productIds.map((productId) => {
-    const product = products.get(productId)
-    if (!product) {
-      return { productId, productName: `Product ${productId}`, memo: '' }
+    const memo = memos.get(productId)
+    if (!memo) {
+      return {
+        message: '',
+        operatorId: '',
+        date: '',
+        tag: '',
+        accountId: productId,
+      }
     }
-    return { ...product }
+    return { ...memo }
   })
 }
 
 export async function saveMemo({ productId, memo }: SaveMemoRequest): Promise<void> {
   await delay(200)
-  const product = products.get(productId)
-  if (!product) {
+  const current = memos.get(productId)
+  if (!current) {
     throw new Error(`Unknown product ${productId}`)
   }
-  product.memo = memo
+  current.message = memo
+  current.operatorId = 'alex.novak'
+  current.date = new Date().toISOString()
 }

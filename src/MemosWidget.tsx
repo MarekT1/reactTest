@@ -13,11 +13,27 @@ import {
   getMemos,
   janeDoeProductIds,
   memosQueryKey,
+  productNameFor,
   saveMemo,
-  type ProductMemo,
+  type MemoRecord,
 } from './memosApi'
 
 const MEMO_MAX_LENGTH = 250
+
+function formatMaintainedDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
+}
 
 function placeCaretAtEnd(el: HTMLInputElement | HTMLTextAreaElement) {
   const end = el.value.length
@@ -64,16 +80,18 @@ function scrollColumnForMemo(widget: HTMLElement, editor: HTMLElement) {
 }
 
 function ProductMemoRow({
-  product,
+  memo,
   open,
   editing,
+  locked,
   onToggle,
   onStartEdit,
   onStopEdit,
 }: {
-  product: ProductMemo
+  memo: MemoRecord
   open: boolean
   editing: boolean
+  locked: boolean
   onToggle: () => void
   onStartEdit: (productId: string) => void
   onStopEdit: (productId: string) => void
@@ -83,22 +101,25 @@ function ProductMemoRow({
   const editorRef = useRef<HTMLDivElement | null>(null)
   const editingRef = useRef(false)
   const pinCaretOnMouseUp = useRef(false)
-  const openRef = useRef(open)
+  const selectionRef = useRef<number | null>(null)
+  const wasOpenRef = useRef(open)
   const [trackedEditing, setTrackedEditing] = useState(editing)
-  const [loadedMemo, setLoadedMemo] = useState(product.memo)
-  const [draft, setDraft] = useState(product.memo)
+  const [loadedMessage, setLoadedMessage] = useState(memo.message)
+  const [draft, setDraft] = useState(memo.message)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const productName = productNameFor(memo.accountId)
+  const maintainedDate = formatMaintainedDate(memo.date)
 
-  if (product.memo !== loadedMemo) {
-    setLoadedMemo(product.memo)
+  if (memo.message !== loadedMessage) {
+    setLoadedMessage(memo.message)
     if (!editing) {
-      setDraft(product.memo)
+      setDraft(memo.message)
     }
   }
   if (editing !== trackedEditing) {
     setTrackedEditing(editing)
     if (!editing) {
-      setDraft(product.memo)
+      setDraft(memo.message)
     }
   }
   if (!editing) {
@@ -110,22 +131,6 @@ function ProductMemoRow({
     mutationFn: saveMemo,
   })
 
-  useEffect(() => {
-    const wasOpen = openRef.current
-    openRef.current = open
-    if (wasOpen === open) {
-      return
-    }
-    editingRef.current = false
-    pinCaretOnMouseUp.current = false
-    setSaveError(null)
-    if (!open) {
-      onStopEdit(product.productId)
-      return
-    }
-    setDraft(product.memo)
-  }, [open, product.memo, product.productId, onStopEdit])
-
   const revealInColumn = () => {
     const editor = editorRef.current
     const widget = editor?.closest<HTMLElement>('[data-memos-widget]')
@@ -136,6 +141,20 @@ function ProductMemoRow({
   }
 
   useLayoutEffect(() => {
+    const wasOpen = wasOpenRef.current
+    wasOpenRef.current = open
+    if (!wasOpen || open || !editing) {
+      return
+    }
+    const el = inputRef.current
+    if (!el) {
+      return
+    }
+    selectionRef.current = el.selectionStart
+    el.blur()
+  }, [open, editing])
+
+  useLayoutEffect(() => {
     if (!open || !editing) {
       return
     }
@@ -144,6 +163,12 @@ function ProductMemoRow({
       return
     }
     el.focus()
+    const position = selectionRef.current
+    if (position !== null) {
+      el.setSelectionRange(position, position)
+      selectionRef.current = null
+      return
+    }
     placeCaretAtEnd(el)
   }, [open, editing])
 
@@ -155,9 +180,12 @@ function ProductMemoRow({
   }, [editing])
 
   const beginEditing = () => {
+    if (locked) {
+      return
+    }
     editingRef.current = true
     setSaveError(null)
-    onStartEdit(product.productId)
+    onStartEdit(memo.accountId)
   }
 
   const toggle = () => {
@@ -165,6 +193,10 @@ function ProductMemoRow({
   }
 
   const handleMouseDown = (event: MouseEvent<HTMLTextAreaElement>) => {
+    if (locked) {
+      event.preventDefault()
+      return
+    }
     if (editingRef.current) {
       revealInColumn()
       return
@@ -186,7 +218,7 @@ function ProductMemoRow({
   }
 
   const handleFocus = (event: FocusEvent<HTMLTextAreaElement>) => {
-    if (editingRef.current) {
+    if (locked || editingRef.current) {
       return
     }
     const el = event.currentTarget
@@ -195,10 +227,10 @@ function ProductMemoRow({
   }
 
   const handleCancel = () => {
-    setDraft(product.memo)
+    setDraft(memo.message)
     setSaveError(null)
     inputRef.current?.blur()
-    onStopEdit(product.productId)
+    onStopEdit(memo.accountId)
   }
 
   const handleSave = async () => {
@@ -207,12 +239,12 @@ function ProductMemoRow({
     }
     setSaveError(null)
     try {
-      await saveMutation.mutateAsync({ productId: product.productId, memo: draft })
+      await saveMutation.mutateAsync({ productId: memo.accountId, memo: draft })
       await queryClient.invalidateQueries({ queryKey: memosQueryKey })
       editingRef.current = false
       pinCaretOnMouseUp.current = false
       inputRef.current?.blur()
-      onStopEdit(product.productId)
+      onStopEdit(memo.accountId)
     } catch {
       setSaveError('Could not save the memo.')
     }
@@ -241,9 +273,9 @@ function ProductMemoRow({
         }}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2">{product.productName}</Typography>
+          <Typography variant="body2">{productName}</Typography>
           <Typography variant="caption" color="text.secondary">
-            {product.productId}
+            {memo.accountId}
           </Typography>
         </Box>
         <ExpandMoreIcon
@@ -256,10 +288,16 @@ function ProductMemoRow({
       </Box>
       <Collapse in={open}>
         <Box ref={editorRef} sx={{ pb: 1 }}>
+          {maintainedDate ? (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+              Last maintained · {maintainedDate}
+            </Typography>
+          ) : null}
           <TextField
             inputRef={inputRef}
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            disabled={locked}
             multiline
             minRows={2}
             fullWidth
@@ -267,7 +305,7 @@ function ProductMemoRow({
             placeholder="Add a memo"
             slotProps={{
               htmlInput: {
-                'aria-label': `Memo for ${product.productName}`,
+                'aria-label': `Memo for ${productName}`,
                 onMouseDown: handleMouseDown,
                 onMouseUp: handleMouseUp,
                 onFocus: handleFocus,
@@ -309,7 +347,7 @@ function ProductMemoRow({
                 onClick={handleSave}
                 disabled={
                   saveMutation.isPending ||
-                  draft === product.memo ||
+                  draft === memo.message ||
                   draft.length > MEMO_MAX_LENGTH
                 }
               >
@@ -346,7 +384,12 @@ export function MemosWidget() {
   const [expandScrollNonce, setExpandScrollNonce] = useState(0)
   const [editingProductId, setEditingProductId] = useState<string | null>(null)
   const startEdit = useCallback((productId: string) => {
-    setEditingProductId(productId)
+    setEditingProductId((current) => {
+      if (current !== null && current !== productId) {
+        return current
+      }
+      return productId
+    })
   }, [])
   const stopEdit = useCallback((productId: string) => {
     setEditingProductId((current) => (current === productId ? null : current))
@@ -365,7 +408,7 @@ export function MemosWidget() {
   }
 
   const expandAll = () => {
-    setOpenIds(new Set(memosQuery.data?.map((product) => product.productId) ?? []))
+    setOpenIds(new Set(memosQuery.data?.map((memo) => memo.accountId) ?? []))
     setExpandScrollNonce((nonce) => nonce + 1)
   }
 
@@ -424,7 +467,7 @@ export function MemosWidget() {
 
   const products = memosQuery.data ?? []
   const allExpanded =
-    products.length > 0 && products.every((product) => openIds.has(product.productId))
+    products.length > 0 && products.every((memo) => openIds.has(memo.accountId))
 
   return (
     <Box ref={widgetRef} data-memos-widget>
@@ -452,13 +495,14 @@ export function MemosWidget() {
             Could not load memos.
           </Typography>
         ) : null}
-        {products.map((product) => (
+        {products.map((memo) => (
           <ProductMemoRow
-            key={product.productId}
-            product={product}
-            open={openIds.has(product.productId)}
-            editing={editingProductId === product.productId}
-            onToggle={() => toggleProduct(product.productId)}
+            key={memo.accountId}
+            memo={memo}
+            open={openIds.has(memo.accountId)}
+            editing={editingProductId === memo.accountId}
+            locked={editingProductId !== null && editingProductId !== memo.accountId}
+            onToggle={() => toggleProduct(memo.accountId)}
             onStartEdit={startEdit}
             onStopEdit={stopEdit}
           />
