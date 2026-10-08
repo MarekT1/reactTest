@@ -5,9 +5,14 @@ export const accountMembershipQueryKey = ['account-membership', janeDoeCustomerI
 export const memoryMessagesQueryKey = ['memory-messages'] as const
 
 export type AccountMembership = {
+  accountId?: string | null
+  productName?: string | null
+  status: string
+}
+
+export type IdentifiedAccount = {
   accountId: string
   productName: string
-  status: string
 }
 
 export type AccountMembershipResponse = {
@@ -74,8 +79,23 @@ function delay(ms: number) {
   })
 }
 
+function presentText(value: string | null | undefined) {
+  const text = value?.trim()
+  return text ? text : null
+}
+
+export function identifiedAccounts(accounts: readonly AccountMembership[]): IdentifiedAccount[] {
+  return accounts.flatMap((account) => {
+    const accountId = presentText(account.accountId)
+    if (!accountId) {
+      return []
+    }
+    return [{ accountId, productName: presentText(account.productName) ?? '' }]
+  })
+}
+
 function knownAccountIds(customerId = janeDoeCustomerId) {
-  return new Set((membershipByCustomer.get(customerId) ?? []).map((account) => account.accountId))
+  return new Set(identifiedAccounts(membershipByCustomer.get(customerId) ?? []).map((account) => account.accountId))
 }
 
 function writeMessage(accountId: string, memoryMessage: string) {

@@ -14,6 +14,7 @@ import {
   deleteMemoMessage,
   getAccountMembership,
   getMemoryMessages,
+  identifiedAccounts,
   janeDoeCustomerId,
   memoryMessagesQueryKey,
   postMemoMessages,
@@ -303,11 +304,13 @@ function ProductMemoRow({
       >
         <Box sx={{ minWidth: 0 }}>
           <Typography variant="body2" sx={{ fontWeight: hasMessage ? 700 : 400 }}>
-            {productName}
+            {productName || accountId}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {accountId}
-          </Typography>
+          {productName ? (
+            <Typography variant="caption" color="text.secondary">
+              {accountId}
+            </Typography>
+          ) : null}
         </Box>
         <ExpandMoreIcon
           fontSize="small"
@@ -336,7 +339,7 @@ function ProductMemoRow({
             placeholder="Add a memo"
             slotProps={{
               htmlInput: {
-                'aria-label': `Memo for ${productName}`,
+                'aria-label': `Memo for ${productName || accountId}`,
                 onMouseDown: handleMouseDown,
                 onMouseUp: handleMouseUp,
                 onFocus: handleFocus,
@@ -422,7 +425,7 @@ export function MemosWidget() {
     queryKey: accountMembershipQueryKey,
     queryFn: () => getAccountMembership(janeDoeCustomerId),
   })
-  const accounts = membershipQuery.data?.accounts ?? []
+  const accounts = identifiedAccounts(membershipQuery.data?.accounts ?? [])
   const accountIds = accounts.map((account) => account.accountId)
   const messagesQuery = useQuery({
     queryKey: [...memoryMessagesQueryKey, accountIds],
