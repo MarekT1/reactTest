@@ -10,12 +10,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type MouseEvent } from 'react'
 import { InfoCard } from './InfoCard'
 import {
-  getMemos,
-  janeDoeProductIds,
-  memosQueryKey,
-  productNameFor,
-  saveMemo,
-  type MemoRecord,
+  accountMembershipQueryKey,
+  deleteMemoMessage,
+  getAccountMembership,
+  getMemoryMessages,
+  janeDoeCustomerId,
+  memoryMessagesQueryKey,
+  postMemoMessages,
 } from './memosApi'
 
 const MEMO_MAX_LENGTH = 250
@@ -80,21 +81,35 @@ function scrollColumnForMemo(widget: HTMLElement, editor: HTMLElement) {
 }
 
 function ProductMemoRow({
-  memo,
+  accountId,
+  productName,
+  message,
+  date,
+  hasMessage,
   open,
   editing,
   locked,
+  canCopy,
+  copyPending,
   onToggle,
   onStartEdit,
   onStopEdit,
+  onCopy,
 }: {
-  memo: MemoRecord
+  accountId: string
+  productName: string
+  message: string
+  date: string
+  hasMessage: boolean
   open: boolean
   editing: boolean
   locked: boolean
+  canCopy: boolean
+  copyPending: boolean
   onToggle: () => void
   onStartEdit: (productId: string) => void
   onStopEdit: (productId: string) => void
+  onCopy: () => Promise<void>
 }) {
   const queryClient = useQueryClient()
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
@@ -104,22 +119,21 @@ function ProductMemoRow({
   const selectionRef = useRef<number | null>(null)
   const wasOpenRef = useRef(open)
   const [trackedEditing, setTrackedEditing] = useState(editing)
-  const [loadedMessage, setLoadedMessage] = useState(memo.message)
-  const [draft, setDraft] = useState(memo.message)
+  const [loadedMessage, setLoadedMessage] = useState(message)
+  const [draft, setDraft] = useState(message)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const productName = productNameFor(memo.accountId)
-  const maintainedDate = formatMaintainedDate(memo.date)
+  const maintainedDate = formatMaintainedDate(date)
 
-  if (memo.message !== loadedMessage) {
-    setLoadedMessage(memo.message)
+  if (message !== loadedMessage) {
+    setLoadedMessage(message)
     if (!editing) {
-      setDraft(memo.message)
+      setDraft(message)
     }
   }
   if (editing !== trackedEditing) {
     setTrackedEditing(editing)
     if (!editing) {
-      setDraft(memo.message)
+      setDraft(message)
     }
   }
   if (!editing) {
@@ -128,7 +142,13 @@ function ProductMemoRow({
   }
 
   const saveMutation = useMutation({
-    mutationFn: saveMemo,
+    mutationFn: async (memoryMessage: string) => {
+      if (memoryMessage.trim() === '') {
+        await deleteMemoMessage({ accountId })
+        return
+      }
+      await postMemoMessages({ accountId, memoryMessage })
+    },
   })
 
   const revealInColumn = () => {
@@ -185,7 +205,7 @@ function ProductMemoRow({
     }
     editingRef.current = true
     setSaveError(null)
-    onStartEdit(memo.accountId)
+    onStartEdit(accountId)
   }
 
   const toggle = () => {
@@ -227,10 +247,10 @@ function ProductMemoRow({
   }
 
   const handleCancel = () => {
-    setDraft(memo.message)
+    setDraft(message)
     setSaveError(null)
     inputRef.current?.blur()
-    onStopEdit(memo.accountId)
+    onStopEdit(accountId)
   }
 
   const handleSave = async () => {
@@ -239,14 +259,23 @@ function ProductMemoRow({
     }
     setSaveError(null)
     try {
-      await saveMutation.mutateAsync({ productId: memo.accountId, memo: draft })
-      await queryClient.invalidateQueries({ queryKey: memosQueryKey })
+      await saveMutation.mutateAsync(draft)
+      await queryClient.invalidateQueries({ queryKey: memoryMessagesQueryKey })
       editingRef.current = false
       pinCaretOnMouseUp.current = false
       inputRef.current?.blur()
-      onStopEdit(memo.accountId)
+      onStopEdit(accountId)
     } catch {
       setSaveError('Could not save the memo.')
+    }
+  }
+
+  const handleCopy = async () => {
+    setSaveError(null)
+    try {
+      await onCopy()
+    } catch {
+      setSaveError('Could not copy the memo.')
     }
   }
 
@@ -273,9 +302,11 @@ function ProductMemoRow({
         }}
       >
         <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2">{productName}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: hasMessage ? 700 : 400 }}>
+            {productName}
+          </Typography>
           <Typography variant="caption" color="text.secondary">
-            {memo.accountId}
+            {accountId}
           </Typography>
         </Box>
         <ExpandMoreIcon
@@ -347,7 +378,7 @@ function ProductMemoRow({
                 onClick={handleSave}
                 disabled={
                   saveMutation.isPending ||
-                  draft === memo.message ||
+                  draft === message ||
                   draft.length > MEMO_MAX_LENGTH
                 }
               >
@@ -363,6 +394,17 @@ function ProductMemoRow({
               </Button>
             </Box>
           ) : null}
+          {canCopy && !editing ? (
+            <Button
+              size="small"
+              variant="text"
+              onClick={handleCopy}
+              disabled={copyPending}
+              sx={{ mt: 0.5, px: 0.5, textTransform: 'none' }}
+            >
+              Copy to all
+            </Button>
+          ) : null}
           {saveError ? (
             <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
               {saveError}
@@ -375,9 +417,21 @@ function ProductMemoRow({
 }
 
 export function MemosWidget() {
-  const memosQuery = useQuery({
-    queryKey: memosQueryKey,
-    queryFn: () => getMemos({ productIds: janeDoeProductIds }),
+  const queryClient = useQueryClient()
+  const membershipQuery = useQuery({
+    queryKey: accountMembershipQueryKey,
+    queryFn: () => getAccountMembership(janeDoeCustomerId),
+  })
+  const accounts = membershipQuery.data?.accounts ?? []
+  const accountIds = accounts.map((account) => account.accountId)
+  const messagesQuery = useQuery({
+    queryKey: [...memoryMessagesQueryKey, accountIds],
+    queryFn: () => getMemoryMessages({ accountIds }),
+    enabled: membershipQuery.isSuccess,
+  })
+  const copyMutation = useMutation({
+    mutationFn: postMemoMessages,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: memoryMessagesQueryKey }),
   })
   const widgetRef = useRef<HTMLDivElement | null>(null)
   const [openIds, setOpenIds] = useState<ReadonlySet<string>>(() => new Set())
@@ -408,7 +462,7 @@ export function MemosWidget() {
   }
 
   const expandAll = () => {
-    setOpenIds(new Set(memosQuery.data?.map((memo) => memo.accountId) ?? []))
+    setOpenIds(new Set(accountIds))
     setExpandScrollNonce((nonce) => nonce + 1)
   }
 
@@ -465,9 +519,11 @@ export function MemosWidget() {
     setOpenIds(new Set())
   }
 
-  const products = memosQuery.data ?? []
-  const allExpanded =
-    products.length > 0 && products.every((memo) => openIds.has(memo.accountId))
+  const messagesByAccount = new Map((messagesQuery.data ?? []).map((memo) => [memo.accountId, memo]))
+  const isPending = membershipQuery.isPending || (membershipQuery.isSuccess && messagesQuery.isPending)
+  const isError = membershipQuery.isError || messagesQuery.isError
+  const allExpanded = accounts.length > 0 && accounts.every((account) => openIds.has(account.accountId))
+  const editingAnywhere = editingProductId !== null
 
   return (
     <Box ref={widgetRef} data-memos-widget>
@@ -478,35 +534,54 @@ export function MemosWidget() {
           <Button
             size="small"
             onClick={allExpanded ? collapseAll : expandAll}
-            disabled={products.length === 0}
+            disabled={accounts.length === 0}
             sx={{ minWidth: 0, px: 1, fontSize: '0.75rem', textTransform: 'none' }}
           >
             {allExpanded ? 'Collapse all' : 'Expand all'}
           </Button>
         }
       >
-        {memosQuery.isPending ? (
+        {isPending ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
             <CircularProgress size={20} />
           </Box>
         ) : null}
-        {memosQuery.isError ? (
+        {isError ? (
           <Typography variant="body2" color="error">
             Could not load memos.
           </Typography>
         ) : null}
-        {products.map((memo) => (
-          <ProductMemoRow
-            key={memo.accountId}
-            memo={memo}
-            open={openIds.has(memo.accountId)}
-            editing={editingProductId === memo.accountId}
-            locked={editingProductId !== null && editingProductId !== memo.accountId}
-            onToggle={() => toggleProduct(memo.accountId)}
-            onStartEdit={startEdit}
-            onStopEdit={stopEdit}
-          />
-        ))}
+        {!isPending && !isError
+          ? accounts.map((account) => {
+              const memo = messagesByAccount.get(account.accountId)
+              const message = memo?.message ?? ''
+              const hasMessage = message.trim() !== ''
+              return (
+                <ProductMemoRow
+                  key={account.accountId}
+                  accountId={account.accountId}
+                  productName={account.productName}
+                  message={message}
+                  date={memo?.date ?? ''}
+                  hasMessage={hasMessage}
+                  open={openIds.has(account.accountId)}
+                  editing={editingProductId === account.accountId}
+                  locked={editingAnywhere && editingProductId !== account.accountId}
+                  canCopy={hasMessage && !editingAnywhere}
+                  copyPending={copyMutation.isPending}
+                  onToggle={() => toggleProduct(account.accountId)}
+                  onStartEdit={startEdit}
+                  onStopEdit={stopEdit}
+                  onCopy={() =>
+                    copyMutation.mutateAsync({
+                      accountIds,
+                      memoryMessage: message,
+                    })
+                  }
+                />
+              )
+            })
+          : null}
       </InfoCard>
     </Box>
   )

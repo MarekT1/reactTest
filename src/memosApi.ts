@@ -1,6 +1,18 @@
-export const janeDoeProductIds = ['24018', '24019'] as const
+export const janeDoeCustomerId = '1048291'
 
-export const memosQueryKey = ['memos', janeDoeProductIds] as const
+export const accountMembershipQueryKey = ['account-membership', janeDoeCustomerId] as const
+
+export const memoryMessagesQueryKey = ['memory-messages'] as const
+
+export type AccountMembership = {
+  accountId: string
+  productName: string
+  status: string
+}
+
+export type AccountMembershipResponse = {
+  accounts: AccountMembership[]
+}
 
 export type MemoRecord = {
   message: string
@@ -10,21 +22,30 @@ export type MemoRecord = {
   accountId: string
 }
 
-const productNames: Record<string, string> = {
-  '24018': 'Personal current account',
-  '24019': 'Cash ISA',
+type GetMemoryMessagesRequest = {
+  accountIds: readonly string[]
 }
 
-type GetMemosRequest = {
-  productIds: readonly string[]
+type PostMemoMessagesRequest =
+  | { accountId: string; memoryMessage: string }
+  | { accountIds: readonly string[]; memoryMessage: string }
+
+type DeleteMemoMessageRequest = {
+  accountId: string
 }
 
-type SaveMemoRequest = {
-  productId: string
-  memo: string
-}
+const membershipByCustomer = new Map<string, AccountMembership[]>([
+  [
+    janeDoeCustomerId,
+    [
+      { accountId: '24018', productName: 'Personal current account', status: 'Active' },
+      { accountId: '24019', productName: 'Cash ISA', status: 'Active' },
+      { accountId: '24020', productName: 'Instant access saver', status: 'Active' },
+    ],
+  ],
+])
 
-const memos = new Map<string, MemoRecord>([
+const messages = new Map<string, MemoRecord>([
   [
     '24018',
     {
@@ -38,9 +59,9 @@ const memos = new Map<string, MemoRecord>([
   [
     '24019',
     {
-      message: '',
-      operatorId: '',
-      date: '',
+      message: 'Prefers the ISA interest paid away to the current account.',
+      operatorId: 'alex.novak',
+      date: '2026-10-07T14:40:00',
       tag: 'savings',
       accountId: '24019',
     },
@@ -53,34 +74,53 @@ function delay(ms: number) {
   })
 }
 
-export function productNameFor(accountId: string) {
-  return productNames[accountId] ?? `Product ${accountId}`
+function knownAccountIds(customerId = janeDoeCustomerId) {
+  return new Set((membershipByCustomer.get(customerId) ?? []).map((account) => account.accountId))
 }
 
-export async function getMemos({ productIds }: GetMemosRequest): Promise<MemoRecord[]> {
-  await delay(200)
-  return productIds.map((productId) => {
-    const memo = memos.get(productId)
-    if (!memo) {
-      return {
-        message: '',
-        operatorId: '',
-        date: '',
-        tag: '',
-        accountId: productId,
-      }
-    }
-    return { ...memo }
+function writeMessage(accountId: string, memoryMessage: string) {
+  const current = messages.get(accountId)
+  messages.set(accountId, {
+    message: memoryMessage,
+    operatorId: 'alex.novak',
+    date: new Date().toISOString(),
+    tag: current?.tag ?? '',
+    accountId,
   })
 }
 
-export async function saveMemo({ productId, memo }: SaveMemoRequest): Promise<void> {
+export async function getAccountMembership(customerId: string): Promise<AccountMembershipResponse> {
   await delay(200)
-  const current = memos.get(productId)
-  if (!current) {
-    throw new Error(`Unknown product ${productId}`)
+  return { accounts: (membershipByCustomer.get(customerId) ?? []).map((account) => ({ ...account })) }
+}
+
+export async function getMemoryMessages({ accountIds }: GetMemoryMessagesRequest): Promise<MemoRecord[]> {
+  await delay(200)
+  return accountIds.flatMap((accountId) => {
+    const memo = messages.get(accountId)
+    if (!memo || memo.message.trim() === '') {
+      return []
+    }
+    return [{ ...memo }]
+  })
+}
+
+export async function postMemoMessages(payload: PostMemoMessagesRequest): Promise<void> {
+  await delay(200)
+  const accounts = knownAccountIds()
+  const targets = 'accountIds' in payload ? payload.accountIds : [payload.accountId]
+  for (const accountId of targets) {
+    if (!accounts.has(accountId)) {
+      throw new Error(`Unknown account ${accountId}`)
+    }
+    writeMessage(accountId, payload.memoryMessage)
   }
-  current.message = memo
-  current.operatorId = 'alex.novak'
-  current.date = new Date().toISOString()
+}
+
+export async function deleteMemoMessage({ accountId }: DeleteMemoMessageRequest): Promise<void> {
+  await delay(200)
+  if (!knownAccountIds().has(accountId)) {
+    throw new Error(`Unknown account ${accountId}`)
+  }
+  messages.delete(accountId)
 }
