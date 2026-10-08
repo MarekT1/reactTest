@@ -525,13 +525,17 @@ export function MemosWidget() {
   const messagesByAccount = new Map((messagesQuery.data ?? []).map((memo) => [memo.accountId, memo]))
   const isPending = membershipQuery.isPending || (membershipQuery.isSuccess && messagesQuery.isPending)
   const isError = membershipQuery.isError || messagesQuery.isError
+  const messageCount = accounts.filter((account) => {
+    const message = messagesByAccount.get(account.accountId)?.message ?? ''
+    return message.trim() !== ''
+  }).length
   const allExpanded = accounts.length > 0 && accounts.every((account) => openIds.has(account.accountId))
   const editingAnywhere = editingProductId !== null
 
   return (
     <Box ref={widgetRef} data-memos-widget>
       <InfoCard
-        title="Memos"
+        title={isPending || isError ? 'Memos' : `${messageCount} Memos`}
         subheader="Jane Doe"
         action={
           <Button
