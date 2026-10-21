@@ -338,6 +338,11 @@ function ProductMemoRow({
             size="small"
             placeholder="Add a memo"
             slotProps={{
+              input: {
+                sx: {
+                  padding: '8px',
+                },
+              },
               htmlInput: {
                 'aria-label': `Memo for ${productName || accountId}`,
                 onMouseDown: handleMouseDown,
