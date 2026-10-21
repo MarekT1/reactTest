@@ -24,6 +24,7 @@ import { DatePicker } from './DatePicker'
 import { DateRangePicker } from './DateRangePicker'
 import { getDefaultDateRange } from './dateRange'
 import { InfoCard } from './InfoCard'
+import { MmWidget } from './MmWidget'
 
 function defaultFromDate(): Date {
   return getDefaultDateRange()[0]
@@ -160,6 +161,8 @@ export function CustomerPanel() {
           </Box>
         </Box>
       </Box>
+
+      <MmWidget />
 
       <Box
         sx={{

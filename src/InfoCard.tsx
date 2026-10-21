@@ -5,7 +5,7 @@ import Typography from '@mui/material/Typography'
 import type { ReactNode } from 'react'
 
 export type InfoCardProps = {
-  title: string
+  title: ReactNode
   subheader?: string
   action?: ReactNode
   children: ReactNode
@@ -16,6 +16,7 @@ export function InfoCard({ title, subheader, action, children }: InfoCardProps) 
     <Card variant="outlined">
       <CardHeader
         title={title}
+        disableTypography={typeof title !== 'string'}
         subheader={subheader}
         action={action}
         slotProps={{
