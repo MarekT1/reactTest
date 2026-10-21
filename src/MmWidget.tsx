@@ -18,17 +18,18 @@ import Typography from '@mui/material/Typography'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useState, type FocusEvent, type ReactNode } from 'react'
 import { useForm, type RegisterOptions, type UseFormRegisterReturn } from 'react-hook-form'
-import { InfoCard } from './InfoCard'
 import {
-  getMmEnrollment,
+  getMmInfo,
   isMmEnrollmentEditable,
-  mmEnrollmentQueryKey,
   mmEnrollmentStatuses,
+  mmInfoQueryKey,
+  mockMNumberSample,
   patchMmEnrollment,
   resendMmEnrollment,
+  setMockMNumber,
   setMockMmEnrollmentStatus,
-  type MmEnrollment,
   type MmEnrollmentStatus,
+  type MmInfo,
 } from './mmEnrollmentApi'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -71,6 +72,30 @@ const statusLabels: Record<MmEnrollmentStatus, string> = {
   CANCELED: 'Canceled',
 }
 
+const fieldLabelSx = {
+  display: 'block',
+  mb: 0.5,
+  fontWeight: 600,
+  fontSize: '12px',
+  lineHeight: '16px',
+  color: 'text.primary',
+} as const
+
+const editableFieldSx = {
+  '& .MuiOutlinedInput-root': {
+    height: 40,
+    fontSize: '14px',
+    fontWeight: 500,
+  },
+  '& .MuiOutlinedInput-input': {
+    height: '100%',
+    boxSizing: 'border-box',
+    padding: '0 8px',
+    fontSize: '14px',
+    fontWeight: 500,
+  },
+} as const
+
 function StatusIcon({ status }: { status: MmEnrollmentStatus }) {
   switch (status) {
     case 'NEW':
@@ -97,15 +122,7 @@ function StatusLine({ status }: { status: MmEnrollmentStatus }) {
   )
 }
 
-const fieldLabelSx = {
-  display: 'block',
-  mb: 0.5,
-  fontSize: '0.8125rem',
-  lineHeight: '18px',
-  color: 'text.secondary',
-} as const
-
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: string }) {
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: string }) {
   return (
     <Typography component="label" htmlFor={htmlFor} sx={fieldLabelSx}>
       {children}
@@ -113,12 +130,40 @@ function FieldLabel({ htmlFor, children }: { htmlFor: string; children: string }
   )
 }
 
+function ReadOnlyValue({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <FieldLabel>{label}</FieldLabel>
+      <Box
+        sx={{
+          height: 40,
+          display: 'flex',
+          alignItems: 'center',
+          boxSizing: 'border-box',
+          pl: '8px',
+          pr: '8px',
+          bgcolor: '#F9F9F9',
+          color: '#999999',
+          fontWeight: 500,
+          fontSize: '14px',
+          lineHeight: '40px',
+          borderRadius: '4px',
+          userSelect: 'none',
+          overflow: 'hidden',
+          whiteSpace: 'nowrap',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {value}
+      </Box>
+    </>
+  )
+}
+
 function ClearableField({
   id,
   label,
-  readOnly,
   errorText,
-  showError,
   registration,
   showClear,
   onClear,
@@ -128,9 +173,7 @@ function ClearableField({
 }: {
   id: string
   label: string
-  readOnly: boolean
   errorText?: string
-  showError: boolean
   registration: UseFormRegisterReturn
   showClear: boolean
   onClear: () => void
@@ -148,11 +191,10 @@ function ClearableField({
         inputRef={ref}
         size="small"
         fullWidth
-        error={showError && Boolean(errorText)}
-        helperText={showError ? errorText : undefined}
+        error={Boolean(errorText)}
+        sx={editableFieldSx}
         slotProps={{
           input: {
-            readOnly,
             endAdornment: showClear ? (
               <InputAdornment position="end">
                 <IconButton
@@ -182,43 +224,66 @@ function ClearableField({
   )
 }
 
+function FieldMessage({ children }: { children?: string }) {
+  return (
+    <Box sx={{ height: 24, display: 'flex', alignItems: 'center' }}>
+      {children ? (
+        <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'error.main' }}>
+          {children}
+        </Typography>
+      ) : null}
+    </Box>
+  )
+}
+
 function MNumberNote() {
   return (
     <Box
       role="note"
       sx={{
-        mt: 1,
+        mt: 0,
+        height: 24,
+        width: 'fit-content',
+        maxWidth: '100%',
         display: 'flex',
-        alignItems: 'flex-start',
-        gap: 0.75,
-        px: 1,
-        py: 0.75,
-        borderRadius: 1,
+        alignItems: 'center',
+        boxSizing: 'border-box',
+        gap: 0.5,
+        px: '8px',
+        border: 'none',
+        borderTop: 'none',
+        borderRadius: '4px',
         bgcolor: '#FFE0B2',
         color: '#E65100',
       }}
     >
-      <WarningAmberIcon sx={{ fontSize: 18, color: '#F9A825', mt: '1px' }} />
-      <Typography variant="caption" sx={{ lineHeight: 1.4 }}>
+      <WarningAmberIcon sx={{ fontSize: 14, color: '#F9A825' }} />
+      <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px' }}>
         This number cannot be edited after saving
       </Typography>
     </Box>
   )
 }
 
-function isChanged(values: MmFormValues, current: MmEnrollment) {
-  const mNumberChanged = !current.mNumberLocked && values.mNumber.trim() !== current.mNumber
-  const emailChanged = values.email.trim() !== current.email
-  return mNumberChanged || emailChanged
+function isChanged(values: MmFormValues, current: MmInfo) {
+  return values.mNumber.trim() !== current.mNumber || values.email.trim() !== current.email
+}
+
+function mNumberChoices(current: string) {
+  const choices = ['', mockMNumberSample]
+  if (current !== '' && !choices.includes(current)) {
+    choices.push(current)
+  }
+  return choices
 }
 
 export function MmWidget() {
   const queryClient = useQueryClient()
-  const enrollmentQuery = useQuery({
-    queryKey: mmEnrollmentQueryKey,
-    queryFn: getMmEnrollment,
+  const infoQuery = useQuery({
+    queryKey: mmInfoQueryKey,
+    queryFn: getMmInfo,
   })
-  const enrollment = enrollmentQuery.data
+  const enrollment = infoQuery.data
   const [editing, setEditing] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [mailMessage, setMailMessage] = useState<string | null>(null)
@@ -237,6 +302,8 @@ export function MmWidget() {
   })
   const mNumberValue = watch('mNumber')
   const emailValue = watch('email')
+
+  const refreshInfo = () => queryClient.invalidateQueries({ queryKey: mmInfoQueryKey })
 
   useLayoutEffect(() => {
     if (!enrollment || editing) {
@@ -261,38 +328,44 @@ export function MmWidget() {
       enrollmentId: string
       payload: { programName: string; mNumber: string; email: string }
     }) => patchMmEnrollment(enrollmentId, payload),
-    onSuccess: (next) => {
-      queryClient.setQueryData(mmEnrollmentQueryKey, next)
+    onSuccess: async () => {
       setSaveError(null)
+      setFocusedField(null)
       setEditing(false)
+      await refreshInfo()
     },
   })
 
   const resendMutation = useMutation({
     mutationFn: resendMmEnrollment,
-    onSuccess: () => {
+    onSuccess: async () => {
       setMailError(null)
       setMailMessage('Enrollment email sent.')
+      await refreshInfo()
     },
   })
 
-  const canEdit = enrollment ? isMmEnrollmentEditable(enrollment.status) : false
-  const mNumberReadOnly = !editing || Boolean(enrollment?.mNumberLocked)
-  const emailReadOnly = !editing
-  const changed = enrollment
-    ? isChanged({ mNumber: mNumberValue, email: emailValue }, enrollment)
-    : false
+  const mNumberEmpty = enrollment ? enrollment.mNumber.trim() === '' : false
+  const canSendMail = Boolean(
+    enrollment && mNumberEmpty && isMmEnrollmentEditable(enrollment.status),
+  )
+  const changed = enrollment ? isChanged({ mNumber: mNumberValue, email: emailValue }, enrollment) : false
   const hasFieldErrors = Boolean(errors.mNumber || errors.email)
   const saveDisabled = !changed || hasFieldErrors || patchMutation.isPending
 
   const handlePreviewStatus = (status: MmEnrollmentStatus) => {
-    const next = setMockMmEnrollmentStatus(status)
-    queryClient.setQueryData(mmEnrollmentQueryKey, next)
-    if (!isMmEnrollmentEditable(status)) {
+    setMockMmEnrollmentStatus(status)
+    void refreshInfo()
+  }
+
+  const handlePreviewMNumber = (mNumber: string) => {
+    setMockMNumber(mNumber)
+    if (mNumber.trim() !== '') {
       setSaveError(null)
+      setFocusedField(null)
       setEditing(false)
-      reset({ mNumber: next.mNumber, email: next.email })
     }
+    void refreshInfo()
   }
 
   const handleCancel = () => {
@@ -309,7 +382,11 @@ export function MmWidget() {
     if (!enrollment) {
       return
     }
-    setValue(field, enrollment[field], { shouldValidate: true, shouldDirty: true, shouldTouch: true })
+    setValue(field, enrollment[field], {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    })
   }
 
   const onSubmit = handleSubmit(async (values) => {
@@ -322,7 +399,7 @@ export function MmWidget() {
         enrollmentId: enrollment.enrollmentId,
         payload: {
           programName: enrollment.programName,
-          mNumber: enrollment.mNumberLocked ? enrollment.mNumber : values.mNumber.trim(),
+          mNumber: values.mNumber.trim(),
           email: values.email.trim(),
         },
       })
@@ -332,7 +409,7 @@ export function MmWidget() {
   })
 
   const handleSendMail = async () => {
-    if (!enrollment) {
+    if (!enrollment || !canSendMail) {
       return
     }
     setMailMessage(null)
@@ -369,7 +446,7 @@ export function MmWidget() {
         </Button>
       </Box>
     )
-  } else if (enrollment && canEdit) {
+  } else if (enrollment && mNumberEmpty) {
     headerAction = (
       <Button type="button" variant="outlined" size="small" onClick={() => setEditing(true)}>
         Edit
@@ -377,109 +454,148 @@ export function MmWidget() {
     )
   }
 
-  const title = (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flexWrap: 'wrap' }}>
-      <Typography variant="subtitle2" component="span">
-        MM widget
-      </Typography>
-      {enrollment ? (
-        <FormControl size="small" sx={{ minWidth: 150, mt: 0.5 }}>
-          <InputLabel id="mm-test-status-label">Test status</InputLabel>
-          <Select
-            labelId="mm-test-status-label"
-            label="Test status"
-            value={enrollment.status}
-            onChange={(event: SelectChangeEvent) =>
-              handlePreviewStatus(event.target.value as MmEnrollmentStatus)
-            }
-            disabled={patchMutation.isPending}
-          >
-            {mmEnrollmentStatuses.map((status) => (
-              <MenuItem key={status} value={status}>
-                {status}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      ) : null}
-    </Box>
-  )
-
   return (
-    <InfoCard title={title} action={headerAction}>
-      {enrollmentQuery.isPending ? (
+    <Box sx={{ p: 0 }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 1,
+          mb: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flexWrap: 'wrap' }}>
+          <Typography variant="subtitle2" component="span">
+            MM widget
+          </Typography>
+          {enrollment ? (
+            <>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="mm-test-status-label">Test status</InputLabel>
+                <Select
+                  labelId="mm-test-status-label"
+                  label="Test status"
+                  value={enrollment.status}
+                  onChange={(event: SelectChangeEvent) =>
+                    handlePreviewStatus(event.target.value as MmEnrollmentStatus)
+                  }
+                  disabled={patchMutation.isPending}
+                >
+                  {mmEnrollmentStatuses.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {status}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150 }}>
+                <InputLabel id="mm-test-m-number-label" shrink>
+                  Test M Number
+                </InputLabel>
+                <Select
+                  labelId="mm-test-m-number-label"
+                  label="Test M Number"
+                  value={enrollment.mNumber}
+                  displayEmpty
+                  notched
+                  renderValue={(value) => (value === '' ? 'Empty' : value)}
+                  onChange={(event: SelectChangeEvent) => handlePreviewMNumber(event.target.value)}
+                  disabled={patchMutation.isPending}
+                >
+                  {mNumberChoices(enrollment.mNumber).map((mNumber) => (
+                    <MenuItem key={mNumber || 'empty'} value={mNumber}>
+                      {mNumber === '' ? 'Empty' : mNumber}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
+          ) : null}
+        </Box>
+      </Box>
+      {infoQuery.isPending ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
           <CircularProgress size={20} />
         </Box>
       ) : null}
-      {enrollmentQuery.isError ? (
+      {infoQuery.isError ? (
         <Typography variant="body2" color="error">
           Could not load the MM enrollment.
         </Typography>
       ) : null}
       {enrollment ? (
         <Box>
-          <Box sx={{ mb: 2 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1,
+              mb: 2,
+            }}
+          >
             <StatusLine status={enrollment.status} />
+            {headerAction}
           </Box>
           <Box component="form" id="mm-enrollment-form" noValidate onSubmit={onSubmit}>
             <Grid container spacing={2}>
               <Grid size={6} sx={{ minWidth: 0 }}>
-                <FieldLabel htmlFor="mm-program-name">Program name</FieldLabel>
-                <TextField
-                  id="mm-program-name"
-                  value={enrollment.programName}
-                  size="small"
-                  fullWidth
-                  slotProps={{
-                    input: { readOnly: true },
-                  }}
-                />
+                <ReadOnlyValue label="Program name" value={enrollment.programName} />
               </Grid>
               <Grid size={6} sx={{ minWidth: 0 }}>
-                <ClearableField
-                  id="mm-m-number"
-                  label="M Number"
-                  readOnly={mNumberReadOnly}
-                  errorText={errors.mNumber?.message}
-                  showError={editing && !mNumberReadOnly}
-                  registration={register('mNumber', mNumberRules)}
-                  showClear={editing && !mNumberReadOnly && focusedField === 'mNumber'}
-                  onClear={() => revertField('mNumber')}
-                  onFocus={() => setFocusedField('mNumber')}
-                  onBlurField={() =>
-                    setFocusedField((current) => (current === 'mNumber' ? null : current))
-                  }
-                  inputMode="numeric"
-                />
-                <MNumberNote />
+                {editing ? (
+                  <ClearableField
+                    id="mm-m-number"
+                    label="M Number"
+                    errorText={errors.mNumber?.message}
+                    registration={register('mNumber', mNumberRules)}
+                    showClear={focusedField === 'mNumber'}
+                    onClear={() => revertField('mNumber')}
+                    onFocus={() => setFocusedField('mNumber')}
+                    onBlurField={() =>
+                      setFocusedField((current) => (current === 'mNumber' ? null : current))
+                    }
+                    inputMode="numeric"
+                  />
+                ) : (
+                  <ReadOnlyValue label="M Number" value={enrollment.mNumber} />
+                )}
+                {editing && errors.mNumber?.message ? (
+                  <FieldMessage>{errors.mNumber.message}</FieldMessage>
+                ) : (
+                  <MNumberNote />
+                )}
               </Grid>
               <Grid size={8} sx={{ minWidth: 0 }}>
-                <ClearableField
-                  id="mm-enrollment-email"
-                  label="Enrollment email"
-                  readOnly={emailReadOnly}
-                  errorText={errors.email?.message}
-                  showError={editing}
-                  registration={register('email', emailRules)}
-                  showClear={editing && focusedField === 'email'}
-                  onClear={() => revertField('email')}
-                  onFocus={() => setFocusedField('email')}
-                  onBlurField={() =>
-                    setFocusedField((current) => (current === 'email' ? null : current))
-                  }
-                />
+                {editing ? (
+                  <ClearableField
+                    id="mm-enrollment-email"
+                    label="Enrollment email"
+                    errorText={errors.email?.message}
+                    registration={register('email', emailRules)}
+                    showClear={focusedField === 'email'}
+                    onClear={() => revertField('email')}
+                    onFocus={() => setFocusedField('email')}
+                    onBlurField={() =>
+                      setFocusedField((current) => (current === 'email' ? null : current))
+                    }
+                  />
+                ) : (
+                  <ReadOnlyValue label="Enrollment email" value={enrollment.email} />
+                )}
+                <FieldMessage>{editing ? errors.email?.message : undefined}</FieldMessage>
               </Grid>
               <Grid size={4} sx={{ minWidth: 0 }}>
-                <Typography aria-hidden sx={{ ...fieldLabelSx, visibility: 'hidden' }}>
+                <Box aria-hidden sx={{ ...fieldLabelSx, visibility: 'hidden' }}>
                   &nbsp;
-                </Typography>
+                </Box>
                 <Button
                   type="button"
                   variant="contained"
                   fullWidth
                   onClick={handleSendMail}
-                  disabled={resendMutation.isPending}
+                  disabled={!canSendMail || resendMutation.isPending}
                   sx={{ height: 40, whiteSpace: 'nowrap', px: 1 }}
                 >
                   {resendMutation.isPending ? 'Sending…' : 'Send mail'}
@@ -504,6 +620,6 @@ export function MmWidget() {
           ) : null}
         </Box>
       ) : null}
-    </InfoCard>
+    </Box>
   )
 }
