@@ -561,10 +561,10 @@ export function MmWidget() {
                 ) : (
                   <ReadOnlyValue label="M Number" value={enrollment.mNumber} />
                 )}
-                {editing && errors.mNumber?.message ? (
-                  <FieldMessage>{errors.mNumber.message}</FieldMessage>
-                ) : (
+                {editing && !errors.mNumber?.message ? (
                   <MNumberNote />
+                ) : (
+                  <FieldMessage>{editing ? errors.mNumber?.message : undefined}</FieldMessage>
                 )}
               </Grid>
               <Grid size={8} sx={{ minWidth: 0 }}>
