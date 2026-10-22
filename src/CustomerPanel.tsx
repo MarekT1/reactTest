@@ -162,7 +162,7 @@ export function CustomerPanel() {
         </Box>
       </Box>
 
-      <MmWidget />
+      <MmWidget accountId="24018" productCode="MMPRODUCT1" />
 
       <Box
         sx={{

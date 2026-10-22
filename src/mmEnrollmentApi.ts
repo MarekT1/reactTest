@@ -1,34 +1,44 @@
-export const mmInfoQueryKey = ['mm-info'] as const
+export const mmEnrollmentsQueryKey = ['mm-enrollments'] as const
 
-export const mmEnrollmentStatuses = ['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELED'] as const
+export const mmEnrollmentStatuses = ['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const
 
-export const mockMNumberSample = '104829'
+export const mmProductCodes = ['MMPRODUCT1', 'MMPRODUCT2'] as const
+
+export const sampleAccountId = '24018'
+
+export const sampleProductCode = 'MMPRODUCT1'
+
+export const mockLoyaltyNumberSample = '104829'
 
 export type MmEnrollmentStatus = (typeof mmEnrollmentStatuses)[number]
 
-export type MmInfo = {
-  enrollmentId: string
-  programName: string
-  mNumber: string
-  email: string
+export type MmEnrollment = {
+  accountId: string
+  id: string
+  mmEmail: string
   status: MmEnrollmentStatus
+  loyaltyNumber: string
 }
 
 export type PatchMmEnrollmentPayload = {
-  programName: string
-  mNumber: string
+  loyaltyNumber: string
   email: string
 }
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-let enrollment: MmInfo = {
-  enrollmentId: 'enr-4821',
-  programName: 'Address change',
-  mNumber: '',
-  email: 'jane.doe@example.com',
-  status: 'IN_PROGRESS',
-}
+const enrollments = new Map<string, MmEnrollment>([
+  [
+    sampleAccountId,
+    {
+      accountId: sampleAccountId,
+      id: 'enr-4821',
+      mmEmail: 'jane.doe@example.com',
+      status: 'IN_PROGRESS',
+      loyaltyNumber: '',
+    },
+  ],
+])
 
 function delay(ms: number) {
   return new Promise((resolve) => {
@@ -36,28 +46,41 @@ function delay(ms: number) {
   })
 }
 
-function cloneEnrollment(): MmInfo {
+function cloneEnrollment(enrollment: MmEnrollment): MmEnrollment {
   return { ...enrollment }
+}
+
+export function isMmProductCode(productCode: string) {
+  return (mmProductCodes as readonly string[]).includes(productCode)
 }
 
 export function isMmEnrollmentEditable(status: MmEnrollmentStatus) {
   return status === 'NEW' || status === 'IN_PROGRESS'
 }
 
-/** GET /info */
-export async function getMmInfo(): Promise<MmInfo> {
+/** GET /enrollments?accountId= */
+export async function getEnrollments(accountId: string): Promise<MmEnrollment | null> {
   await delay(200)
-  return cloneEnrollment()
+  const enrollment = enrollments.get(accountId)
+  return enrollment ? cloneEnrollment(enrollment) : null
 }
 
-/** Updates the mocked status returned by GET /info. */
-export function setMockMmEnrollmentStatus(status: MmEnrollmentStatus) {
-  enrollment = { ...enrollment, status }
+/** Updates the mocked status returned by GET /enrollments for this account. */
+export function setMockEnrollmentStatus(accountId: string, status: MmEnrollmentStatus) {
+  const enrollment = enrollments.get(accountId)
+  if (!enrollment) {
+    return
+  }
+  enrollments.set(accountId, { ...enrollment, status })
 }
 
-/** Updates the mocked M Number returned by GET /info. An empty string clears it. */
-export function setMockMNumber(mNumber: string) {
-  enrollment = { ...enrollment, mNumber }
+/** Updates the mocked loyalty number returned by GET /enrollments. An empty string clears it. */
+export function setMockLoyaltyNumber(accountId: string, loyaltyNumber: string) {
+  const enrollment = enrollments.get(accountId)
+  if (!enrollment) {
+    return
+  }
+  enrollments.set(accountId, { ...enrollment, loyaltyNumber })
 }
 
 /** PATCH /MM-enrollments/{enrollmentId} */
@@ -66,34 +89,35 @@ export async function patchMmEnrollment(
   payload: PatchMmEnrollmentPayload,
 ): Promise<void> {
   await delay(200)
-  if (enrollment.enrollmentId !== enrollmentId) {
+  const current = [...enrollments.values()].find((enrollment) => enrollment.id === enrollmentId)
+  if (!current) {
     throw new Error('Enrollment not found')
   }
-  if (enrollment.mNumber.trim() !== '') {
-    throw new Error('M Number cannot be edited after it is set')
+  if (current.loyaltyNumber.trim() !== '') {
+    throw new Error('Loyalty number cannot be edited after it is set')
   }
-  if (!/^\d+$/.test(payload.mNumber)) {
-    throw new Error('M Number must be a number')
+  if (!/^\d+$/.test(payload.loyaltyNumber)) {
+    throw new Error('Loyalty number must be a number')
   }
   if (!emailPattern.test(payload.email)) {
     throw new Error('Email must be valid')
   }
 
-  enrollment = {
-    ...enrollment,
-    programName: payload.programName,
-    mNumber: payload.mNumber,
-    email: payload.email,
-  }
+  enrollments.set(current.accountId, {
+    ...current,
+    loyaltyNumber: payload.loyaltyNumber,
+    mmEmail: payload.email,
+  })
 }
 
 /** POST /mm-enrollments/resend */
 export async function resendMmEnrollment(enrollmentId: string): Promise<void> {
   await delay(200)
-  if (enrollment.enrollmentId !== enrollmentId) {
+  const current = [...enrollments.values()].find((enrollment) => enrollment.id === enrollmentId)
+  if (!current) {
     throw new Error('Enrollment not found')
   }
-  if (enrollment.mNumber.trim() !== '' || !isMmEnrollmentEditable(enrollment.status)) {
+  if (current.loyaltyNumber.trim() !== '' || !isMmEnrollmentEditable(current.status)) {
     throw new Error('Mail cannot be sent')
   }
 }

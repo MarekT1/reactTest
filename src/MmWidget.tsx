@@ -19,33 +19,41 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useState, type FocusEvent, type ReactNode } from 'react'
 import { useForm, type RegisterOptions, type UseFormRegisterReturn } from 'react-hook-form'
 import {
-  getMmInfo,
+  getEnrollments,
   isMmEnrollmentEditable,
+  isMmProductCode,
+  mmEnrollmentsQueryKey,
   mmEnrollmentStatuses,
-  mmInfoQueryKey,
-  mockMNumberSample,
+  mockLoyaltyNumberSample,
   patchMmEnrollment,
   resendMmEnrollment,
-  setMockMNumber,
-  setMockMmEnrollmentStatus,
+  sampleAccountId,
+  sampleProductCode,
+  setMockEnrollmentStatus,
+  setMockLoyaltyNumber,
+  type MmEnrollment,
   type MmEnrollmentStatus,
-  type MmInfo,
 } from './mmEnrollmentApi'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+export type MmWidgetProps = {
+  accountId?: string
+  productCode?: string
+}
+
 type MmFormValues = {
-  mNumber: string
+  loyaltyNumber: string
   email: string
 }
 
-const mNumberRules: RegisterOptions<MmFormValues, 'mNumber'> = {
+const loyaltyNumberRules: RegisterOptions<MmFormValues, 'loyaltyNumber'> = {
   validate: (value) => {
-    const mNumber = value.trim()
-    if (mNumber === '') {
+    const loyaltyNumber = value.trim()
+    if (loyaltyNumber === '') {
       return 'M Number is required'
     }
-    if (!/^\d+$/.test(mNumber)) {
+    if (!/^\d+$/.test(loyaltyNumber)) {
       return 'M Number must be a number'
     }
     return true
@@ -69,7 +77,7 @@ const statusLabels: Record<MmEnrollmentStatus, string> = {
   NEW: 'New enrollment',
   IN_PROGRESS: 'Processing new change',
   COMPLETED: 'Completed',
-  CANCELED: 'Canceled',
+  CANCELLED: 'Cancelled',
 }
 
 const fieldLabelSx = {
@@ -104,7 +112,7 @@ function StatusIcon({ status }: { status: MmEnrollmentStatus }) {
       return <CircularProgress size={14} />
     case 'COMPLETED':
       return <CheckCircleOutlineIcon sx={{ fontSize: 16 }} color="success" />
-    case 'CANCELED':
+    case 'CANCELLED':
       return <CancelOutlinedIcon sx={{ fontSize: 16 }} color="error" />
   }
 }
@@ -265,25 +273,41 @@ function MNumberNote() {
   )
 }
 
-function isChanged(values: MmFormValues, current: MmInfo) {
-  return values.mNumber.trim() !== current.mNumber || values.email.trim() !== current.email
+function isChanged(values: MmFormValues, current: MmEnrollment) {
+  return (
+    values.loyaltyNumber.trim() !== current.loyaltyNumber || values.email.trim() !== current.mmEmail
+  )
 }
 
-function mNumberChoices(current: string) {
-  const choices = ['', mockMNumberSample]
+function withCurrent(choices: string[], current: string) {
   if (current !== '' && !choices.includes(current)) {
-    choices.push(current)
+    return [...choices, current]
   }
   return choices
 }
 
-export function MmWidget() {
+function loyaltyNumberChoices(current: string) {
+  return withCurrent(['', mockLoyaltyNumberSample], current)
+}
+
+function enrollmentFormValues(enrollment: MmEnrollment): MmFormValues {
+  return { loyaltyNumber: enrollment.loyaltyNumber, email: enrollment.mmEmail }
+}
+
+export function MmWidget({
+  accountId: initialAccountId = sampleAccountId,
+  productCode: initialProductCode = sampleProductCode,
+}: MmWidgetProps) {
   const queryClient = useQueryClient()
-  const infoQuery = useQuery({
-    queryKey: mmInfoQueryKey,
-    queryFn: getMmInfo,
+  const [accountId, setAccountId] = useState(initialAccountId)
+  const [productCode, setProductCode] = useState(initialProductCode)
+  const isMmAccount = isMmProductCode(productCode)
+  const enrollmentsQuery = useQuery({
+    queryKey: [...mmEnrollmentsQueryKey, accountId],
+    queryFn: () => getEnrollments(accountId),
+    enabled: isMmAccount,
   })
-  const enrollment = infoQuery.data
+  const enrollment = isMmAccount ? enrollmentsQuery.data : undefined
   const [editing, setEditing] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [mailMessage, setMailMessage] = useState<string | null>(null)
@@ -297,19 +321,20 @@ export function MmWidget() {
     watch,
     formState: { errors },
   } = useForm<MmFormValues>({
-    defaultValues: { mNumber: '', email: '' },
+    defaultValues: { loyaltyNumber: '', email: '' },
     mode: 'onChange',
   })
-  const mNumberValue = watch('mNumber')
+  const loyaltyNumberValue = watch('loyaltyNumber')
   const emailValue = watch('email')
 
-  const refreshInfo = () => queryClient.invalidateQueries({ queryKey: mmInfoQueryKey })
+  const refreshEnrollment = () =>
+    queryClient.invalidateQueries({ queryKey: [...mmEnrollmentsQueryKey, accountId] })
 
   useLayoutEffect(() => {
     if (!enrollment || editing) {
       return
     }
-    reset({ mNumber: enrollment.mNumber, email: enrollment.email })
+    reset(enrollmentFormValues(enrollment))
   }, [enrollment, editing, reset])
 
   useEffect(() => {
@@ -326,13 +351,13 @@ export function MmWidget() {
       payload,
     }: {
       enrollmentId: string
-      payload: { programName: string; mNumber: string; email: string }
+      payload: { loyaltyNumber: string; email: string }
     }) => patchMmEnrollment(enrollmentId, payload),
     onSuccess: async () => {
       setSaveError(null)
       setFocusedField(null)
       setEditing(false)
-      await refreshInfo()
+      await refreshEnrollment()
     },
   })
 
@@ -341,31 +366,47 @@ export function MmWidget() {
     onSuccess: async () => {
       setMailError(null)
       setMailMessage('Enrollment email sent.')
-      await refreshInfo()
+      await refreshEnrollment()
     },
   })
 
-  const mNumberEmpty = enrollment ? enrollment.mNumber.trim() === '' : false
+  const loyaltyNumberEmpty = enrollment ? enrollment.loyaltyNumber.trim() === '' : false
   const canSendMail = Boolean(
-    enrollment && mNumberEmpty && isMmEnrollmentEditable(enrollment.status),
+    enrollment && loyaltyNumberEmpty && isMmEnrollmentEditable(enrollment.status),
   )
-  const changed = enrollment ? isChanged({ mNumber: mNumberValue, email: emailValue }, enrollment) : false
-  const hasFieldErrors = Boolean(errors.mNumber || errors.email)
+  const changed = enrollment
+    ? isChanged({ loyaltyNumber: loyaltyNumberValue, email: emailValue }, enrollment)
+    : false
+  const hasFieldErrors = Boolean(errors.loyaltyNumber || errors.email)
   const saveDisabled = !changed || hasFieldErrors || patchMutation.isPending
 
-  const handlePreviewStatus = (status: MmEnrollmentStatus) => {
-    setMockMmEnrollmentStatus(status)
-    void refreshInfo()
+  const handleAccountId = (nextAccountId: string) => {
+    setSaveError(null)
+    setFocusedField(null)
+    setEditing(false)
+    setAccountId(nextAccountId)
   }
 
-  const handlePreviewMNumber = (mNumber: string) => {
-    setMockMNumber(mNumber)
-    if (mNumber.trim() !== '') {
+  const handleProductCode = (nextProductCode: string) => {
+    setSaveError(null)
+    setFocusedField(null)
+    setEditing(false)
+    setProductCode(nextProductCode)
+  }
+
+  const handlePreviewStatus = (status: MmEnrollmentStatus) => {
+    setMockEnrollmentStatus(accountId, status)
+    void refreshEnrollment()
+  }
+
+  const handlePreviewLoyaltyNumber = (loyaltyNumber: string) => {
+    setMockLoyaltyNumber(accountId, loyaltyNumber)
+    if (loyaltyNumber.trim() !== '') {
       setSaveError(null)
       setFocusedField(null)
       setEditing(false)
     }
-    void refreshInfo()
+    void refreshEnrollment()
   }
 
   const handleCancel = () => {
@@ -374,7 +415,7 @@ export function MmWidget() {
     }
     setSaveError(null)
     setFocusedField(null)
-    reset({ mNumber: enrollment.mNumber, email: enrollment.email })
+    reset(enrollmentFormValues(enrollment))
     setEditing(false)
   }
 
@@ -382,7 +423,8 @@ export function MmWidget() {
     if (!enrollment) {
       return
     }
-    setValue(field, enrollment[field], {
+    const value = field === 'email' ? enrollment.mmEmail : enrollment.loyaltyNumber
+    setValue(field, value, {
       shouldValidate: true,
       shouldDirty: true,
       shouldTouch: true,
@@ -396,10 +438,9 @@ export function MmWidget() {
     setSaveError(null)
     try {
       await patchMutation.mutateAsync({
-        enrollmentId: enrollment.enrollmentId,
+        enrollmentId: enrollment.id,
         payload: {
-          programName: enrollment.programName,
-          mNumber: values.mNumber.trim(),
+          loyaltyNumber: values.loyaltyNumber.trim(),
           email: values.email.trim(),
         },
       })
@@ -415,7 +456,7 @@ export function MmWidget() {
     setMailMessage(null)
     setMailError(null)
     try {
-      await resendMutation.mutateAsync(enrollment.enrollmentId)
+      await resendMutation.mutateAsync(enrollment.id)
     } catch {
       setMailError('Could not send the enrollment email.')
     }
@@ -446,7 +487,7 @@ export function MmWidget() {
         </Button>
       </Box>
     )
-  } else if (enrollment && mNumberEmpty) {
+  } else if (enrollment && loyaltyNumberEmpty) {
     headerAction = (
       <Button type="button" variant="outlined" size="small" onClick={() => setEditing(true)}>
         Edit
@@ -469,6 +510,46 @@ export function MmWidget() {
           <Typography variant="subtitle2" component="span">
             MM widget
           </Typography>
+          <FormControl size="small" sx={{ minWidth: 140 }}>
+            <InputLabel id="mm-account-id-label" shrink>
+              Account
+            </InputLabel>
+            <Select
+              labelId="mm-account-id-label"
+              label="Account"
+              value={accountId}
+              displayEmpty
+              notched
+              renderValue={(value) => (value === '' ? 'Empty' : value)}
+              onChange={(event: SelectChangeEvent) => handleAccountId(event.target.value)}
+            >
+              {withCurrent(['', sampleAccountId], accountId).map((value) => (
+                <MenuItem key={value || 'empty-account'} value={value}>
+                  {value === '' ? 'Empty' : value}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="mm-product-code-label" shrink>
+              Product
+            </InputLabel>
+            <Select
+              labelId="mm-product-code-label"
+              label="Product"
+              value={productCode}
+              displayEmpty
+              notched
+              renderValue={(value) => (value === '' ? 'Empty' : value)}
+              onChange={(event: SelectChangeEvent) => handleProductCode(event.target.value)}
+            >
+              {withCurrent(['', sampleProductCode], productCode).map((value) => (
+                <MenuItem key={value || 'empty-product'} value={value}>
+                  {value === '' ? 'Empty' : value}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           {enrollment ? (
             <>
               <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -496,16 +577,16 @@ export function MmWidget() {
                 <Select
                   labelId="mm-test-m-number-label"
                   label="Test M Number"
-                  value={enrollment.mNumber}
+                  value={enrollment.loyaltyNumber}
                   displayEmpty
                   notched
                   renderValue={(value) => (value === '' ? 'Empty' : value)}
-                  onChange={(event: SelectChangeEvent) => handlePreviewMNumber(event.target.value)}
+                  onChange={(event: SelectChangeEvent) => handlePreviewLoyaltyNumber(event.target.value)}
                   disabled={patchMutation.isPending}
                 >
-                  {mNumberChoices(enrollment.mNumber).map((mNumber) => (
-                    <MenuItem key={mNumber || 'empty'} value={mNumber}>
-                      {mNumber === '' ? 'Empty' : mNumber}
+                  {loyaltyNumberChoices(enrollment.loyaltyNumber).map((loyaltyNumber) => (
+                    <MenuItem key={loyaltyNumber || 'empty'} value={loyaltyNumber}>
+                      {loyaltyNumber === '' ? 'Empty' : loyaltyNumber}
                     </MenuItem>
                   ))}
                 </Select>
@@ -514,15 +595,21 @@ export function MmWidget() {
           ) : null}
         </Box>
       </Box>
-      {infoQuery.isPending ? (
+      {!isMmAccount ? (
+        <Typography variant="body2">Account is not MM account</Typography>
+      ) : null}
+      {isMmAccount && enrollmentsQuery.isPending ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
           <CircularProgress size={20} />
         </Box>
       ) : null}
-      {infoQuery.isError ? (
+      {isMmAccount && enrollmentsQuery.isError ? (
         <Typography variant="body2" color="error">
           Could not load the MM enrollment.
         </Typography>
+      ) : null}
+      {isMmAccount && enrollmentsQuery.isSuccess && !enrollment ? (
+        <Typography variant="body2">No enrollment for this account.</Typography>
       ) : null}
       {enrollment ? (
         <Box>
@@ -541,30 +628,27 @@ export function MmWidget() {
           <Box component="form" id="mm-enrollment-form" noValidate onSubmit={onSubmit}>
             <Grid container spacing={2}>
               <Grid size={6} sx={{ minWidth: 0 }}>
-                <ReadOnlyValue label="Program name" value={enrollment.programName} />
-              </Grid>
-              <Grid size={6} sx={{ minWidth: 0 }}>
                 {editing ? (
                   <ClearableField
                     id="mm-m-number"
                     label="M Number"
-                    errorText={errors.mNumber?.message}
-                    registration={register('mNumber', mNumberRules)}
-                    showClear={focusedField === 'mNumber'}
-                    onClear={() => revertField('mNumber')}
-                    onFocus={() => setFocusedField('mNumber')}
+                    errorText={errors.loyaltyNumber?.message}
+                    registration={register('loyaltyNumber', loyaltyNumberRules)}
+                    showClear={focusedField === 'loyaltyNumber'}
+                    onClear={() => revertField('loyaltyNumber')}
+                    onFocus={() => setFocusedField('loyaltyNumber')}
                     onBlurField={() =>
-                      setFocusedField((current) => (current === 'mNumber' ? null : current))
+                      setFocusedField((current) => (current === 'loyaltyNumber' ? null : current))
                     }
                     inputMode="numeric"
                   />
                 ) : (
-                  <ReadOnlyValue label="M Number" value={enrollment.mNumber} />
+                  <ReadOnlyValue label="M Number" value={enrollment.loyaltyNumber} />
                 )}
-                {editing && !errors.mNumber?.message ? (
+                {editing && !errors.loyaltyNumber?.message ? (
                   <MNumberNote />
                 ) : (
-                  <FieldMessage>{editing ? errors.mNumber?.message : undefined}</FieldMessage>
+                  <FieldMessage>{editing ? errors.loyaltyNumber?.message : undefined}</FieldMessage>
                 )}
               </Grid>
               <Grid size={8} sx={{ minWidth: 0 }}>
@@ -582,7 +666,7 @@ export function MmWidget() {
                     }
                   />
                 ) : (
-                  <ReadOnlyValue label="Enrollment email" value={enrollment.email} />
+                  <ReadOnlyValue label="Enrollment email" value={enrollment.mmEmail} />
                 )}
                 <FieldMessage>{editing ? errors.email?.message : undefined}</FieldMessage>
               </Grid>
