@@ -17,7 +17,6 @@ export type MmEnrollment = {
   id: string
   mmEmail: string
   status: MmEnrollmentStatus
-  loyaltyNumber: string
 }
 
 export type PatchMmEnrollmentPayload = {
@@ -35,10 +34,11 @@ const enrollments = new Map<string, MmEnrollment>([
       id: 'enr-4821',
       mmEmail: 'jane.doe@example.com',
       status: 'IN_PROGRESS',
-      loyaltyNumber: '',
     },
   ],
 ])
+
+const loyaltyNumberSaved = new Set<string>()
 
 function delay(ms: number) {
   return new Promise((resolve) => {
@@ -74,15 +74,6 @@ export function setMockEnrollmentStatus(accountId: string, status: MmEnrollmentS
   enrollments.set(accountId, { ...enrollment, status })
 }
 
-/** Updates the mocked loyalty number returned by GET /enrollments. An empty string clears it. */
-export function setMockLoyaltyNumber(accountId: string, loyaltyNumber: string) {
-  const enrollment = enrollments.get(accountId)
-  if (!enrollment) {
-    return
-  }
-  enrollments.set(accountId, { ...enrollment, loyaltyNumber })
-}
-
 /** PATCH /MM-enrollments/{enrollmentId} */
 export async function patchMmEnrollment(
   enrollmentId: string,
@@ -93,7 +84,7 @@ export async function patchMmEnrollment(
   if (!current) {
     throw new Error('Enrollment not found')
   }
-  if (current.loyaltyNumber.trim() !== '') {
+  if (loyaltyNumberSaved.has(enrollmentId)) {
     throw new Error('Loyalty number cannot be edited after it is set')
   }
   if (!/^\d+$/.test(payload.loyaltyNumber)) {
@@ -105,9 +96,9 @@ export async function patchMmEnrollment(
 
   enrollments.set(current.accountId, {
     ...current,
-    loyaltyNumber: payload.loyaltyNumber,
     mmEmail: payload.email,
   })
+  loyaltyNumberSaved.add(enrollmentId)
 }
 
 /** POST /mm-enrollments/resend */
@@ -117,7 +108,7 @@ export async function resendMmEnrollment(enrollmentId: string): Promise<void> {
   if (!current) {
     throw new Error('Enrollment not found')
   }
-  if (current.loyaltyNumber.trim() !== '' || !isMmEnrollmentEditable(current.status)) {
+  if (loyaltyNumberSaved.has(enrollmentId) || !isMmEnrollmentEditable(current.status)) {
     throw new Error('Mail cannot be sent')
   }
 }

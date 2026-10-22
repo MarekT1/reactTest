@@ -30,7 +30,6 @@ import {
   sampleAccountId,
   sampleProductCode,
   setMockEnrollmentStatus,
-  setMockLoyaltyNumber,
   type MmEnrollment,
   type MmEnrollmentStatus,
 } from './mmEnrollmentApi'
@@ -40,6 +39,7 @@ const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 export type MmWidgetProps = {
   accountId?: string
   productCode?: string
+  loyaltyNumber?: string
 }
 
 type MmFormValues = {
@@ -244,7 +244,7 @@ function FieldMessage({ children }: { children?: string }) {
   )
 }
 
-function MNumberNote() {
+function MNumberNote({ children }: { children: string }) {
   return (
     <Box
       role="note"
@@ -266,17 +266,13 @@ function MNumberNote() {
       }}
     >
       <WarningAmberIcon sx={{ fontSize: 14, color: '#F9A825' }} />
-      <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px' }}>
-        This number cannot be edited after saving
-      </Typography>
+      <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px' }}>{children}</Typography>
     </Box>
   )
 }
 
-function isChanged(values: MmFormValues, current: MmEnrollment) {
-  return (
-    values.loyaltyNumber.trim() !== current.loyaltyNumber || values.email.trim() !== current.mmEmail
-  )
+function isChanged(values: MmFormValues, email: string) {
+  return values.loyaltyNumber.trim() !== '' || values.email.trim() !== email
 }
 
 function withCurrent(choices: string[], current: string) {
@@ -291,16 +287,19 @@ function loyaltyNumberChoices(current: string) {
 }
 
 function enrollmentFormValues(enrollment: MmEnrollment): MmFormValues {
-  return { loyaltyNumber: enrollment.loyaltyNumber, email: enrollment.mmEmail }
+  return { loyaltyNumber: '', email: enrollment.mmEmail }
 }
 
 export function MmWidget({
   accountId: initialAccountId = sampleAccountId,
   productCode: initialProductCode = sampleProductCode,
+  loyaltyNumber: initialLoyaltyNumber = '',
 }: MmWidgetProps) {
   const queryClient = useQueryClient()
   const [accountId, setAccountId] = useState(initialAccountId)
   const [productCode, setProductCode] = useState(initialProductCode)
+  const [loyaltyNumber, setLoyaltyNumber] = useState(initialLoyaltyNumber)
+  const [savedLoyaltyNumbers, setSavedLoyaltyNumbers] = useState<Record<string, string>>({})
   const isMmAccount = isMmProductCode(productCode)
   const enrollmentsQuery = useQuery({
     queryKey: [...mmEnrollmentsQueryKey, accountId],
@@ -370,12 +369,17 @@ export function MmWidget({
     },
   })
 
-  const loyaltyNumberEmpty = enrollment ? enrollment.loyaltyNumber.trim() === '' : false
+  const externalLoyaltyNumber = loyaltyNumber.trim()
+  const savedLoyaltyNumber = savedLoyaltyNumbers[accountId] ?? ''
+  const displayedLoyaltyNumber =
+    externalLoyaltyNumber !== '' ? externalLoyaltyNumber : savedLoyaltyNumber
+  const loyaltyNumberFromExternal = externalLoyaltyNumber !== ''
+  const loyaltyNumberEmpty = displayedLoyaltyNumber === ''
   const canSendMail = Boolean(
     enrollment && loyaltyNumberEmpty && isMmEnrollmentEditable(enrollment.status),
   )
   const changed = enrollment
-    ? isChanged({ loyaltyNumber: loyaltyNumberValue, email: emailValue }, enrollment)
+    ? isChanged({ loyaltyNumber: loyaltyNumberValue, email: emailValue }, enrollment.mmEmail)
     : false
   const hasFieldErrors = Boolean(errors.loyaltyNumber || errors.email)
   const saveDisabled = !changed || hasFieldErrors || patchMutation.isPending
@@ -399,14 +403,11 @@ export function MmWidget({
     void refreshEnrollment()
   }
 
-  const handlePreviewLoyaltyNumber = (loyaltyNumber: string) => {
-    setMockLoyaltyNumber(accountId, loyaltyNumber)
-    if (loyaltyNumber.trim() !== '') {
-      setSaveError(null)
-      setFocusedField(null)
-      setEditing(false)
-    }
-    void refreshEnrollment()
+  const handleLoyaltyNumber = (nextLoyaltyNumber: string) => {
+    setSaveError(null)
+    setFocusedField(null)
+    setEditing(false)
+    setLoyaltyNumber(nextLoyaltyNumber)
   }
 
   const handleCancel = () => {
@@ -423,7 +424,7 @@ export function MmWidget({
     if (!enrollment) {
       return
     }
-    const value = field === 'email' ? enrollment.mmEmail : enrollment.loyaltyNumber
+    const value = field === 'email' ? enrollment.mmEmail : ''
     setValue(field, value, {
       shouldValidate: true,
       shouldDirty: true,
@@ -432,18 +433,20 @@ export function MmWidget({
   }
 
   const onSubmit = handleSubmit(async (values) => {
-    if (!enrollment || !isChanged(values, enrollment) || patchMutation.isPending) {
+    if (!enrollment || !isChanged(values, enrollment.mmEmail) || patchMutation.isPending) {
       return
     }
     setSaveError(null)
+    const submittedLoyaltyNumber = values.loyaltyNumber.trim()
     try {
       await patchMutation.mutateAsync({
         enrollmentId: enrollment.id,
         payload: {
-          loyaltyNumber: values.loyaltyNumber.trim(),
+          loyaltyNumber: submittedLoyaltyNumber,
           email: values.email.trim(),
         },
       })
+      setSavedLoyaltyNumbers((current) => ({ ...current, [accountId]: submittedLoyaltyNumber }))
     } catch {
       setSaveError('Could not save the enrollment.')
     }
@@ -550,48 +553,45 @@ export function MmWidget({
               ))}
             </Select>
           </FormControl>
+          <FormControl size="small" sx={{ minWidth: 160 }}>
+            <InputLabel id="mm-loyalty-number-label" shrink>
+              Loyalty number
+            </InputLabel>
+            <Select
+              labelId="mm-loyalty-number-label"
+              label="Loyalty number"
+              value={loyaltyNumber}
+              displayEmpty
+              notched
+              renderValue={(value) => (value === '' ? 'Empty' : value)}
+              onChange={(event: SelectChangeEvent) => handleLoyaltyNumber(event.target.value)}
+            >
+              {loyaltyNumberChoices(loyaltyNumber).map((value) => (
+                <MenuItem key={value || 'empty-loyalty'} value={value}>
+                  {value === '' ? 'Empty' : value}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           {enrollment ? (
-            <>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel id="mm-test-status-label">Test status</InputLabel>
-                <Select
-                  labelId="mm-test-status-label"
-                  label="Test status"
-                  value={enrollment.status}
-                  onChange={(event: SelectChangeEvent) =>
-                    handlePreviewStatus(event.target.value as MmEnrollmentStatus)
-                  }
-                  disabled={patchMutation.isPending}
-                >
-                  {mmEnrollmentStatuses.map((status) => (
-                    <MenuItem key={status} value={status}>
-                      {status}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel id="mm-test-m-number-label" shrink>
-                  Test M Number
-                </InputLabel>
-                <Select
-                  labelId="mm-test-m-number-label"
-                  label="Test M Number"
-                  value={enrollment.loyaltyNumber}
-                  displayEmpty
-                  notched
-                  renderValue={(value) => (value === '' ? 'Empty' : value)}
-                  onChange={(event: SelectChangeEvent) => handlePreviewLoyaltyNumber(event.target.value)}
-                  disabled={patchMutation.isPending}
-                >
-                  {loyaltyNumberChoices(enrollment.loyaltyNumber).map((loyaltyNumber) => (
-                    <MenuItem key={loyaltyNumber || 'empty'} value={loyaltyNumber}>
-                      {loyaltyNumber === '' ? 'Empty' : loyaltyNumber}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel id="mm-test-status-label">Test status</InputLabel>
+              <Select
+                labelId="mm-test-status-label"
+                label="Test status"
+                value={enrollment.status}
+                onChange={(event: SelectChangeEvent) =>
+                  handlePreviewStatus(event.target.value as MmEnrollmentStatus)
+                }
+                disabled={patchMutation.isPending}
+              >
+                {mmEnrollmentStatuses.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           ) : null}
         </Box>
       </Box>
@@ -643,10 +643,12 @@ export function MmWidget({
                     inputMode="numeric"
                   />
                 ) : (
-                  <ReadOnlyValue label="M Number" value={enrollment.loyaltyNumber} />
+                  <ReadOnlyValue label="M Number" value={displayedLoyaltyNumber} />
                 )}
                 {editing && !errors.loyaltyNumber?.message ? (
-                  <MNumberNote />
+                  <MNumberNote>This number cannot be edited after saving</MNumberNote>
+                ) : !editing && loyaltyNumberFromExternal ? (
+                  <MNumberNote>This number comes from an external service</MNumberNote>
                 ) : (
                   <FieldMessage>{editing ? errors.loyaltyNumber?.message : undefined}</FieldMessage>
                 )}
