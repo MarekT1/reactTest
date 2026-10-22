@@ -8,8 +8,6 @@ export const sampleAccountId = '24018'
 
 export const sampleProductCode = 'MMPRODUCT1'
 
-export const mockLoyaltyNumberSample = '104829'
-
 export type MmEnrollmentStatus = (typeof mmEnrollmentStatuses)[number]
 
 export type MmEnrollment = {
@@ -63,15 +61,6 @@ export async function getEnrollments(accountId: string): Promise<MmEnrollment | 
   await delay(200)
   const enrollment = enrollments.get(accountId)
   return enrollment ? cloneEnrollment(enrollment) : null
-}
-
-/** Updates the mocked status returned by GET /enrollments for this account. */
-export function setMockEnrollmentStatus(accountId: string, status: MmEnrollmentStatus) {
-  const enrollment = enrollments.get(accountId)
-  if (!enrollment) {
-    return
-  }
-  enrollments.set(accountId, { ...enrollment, status })
 }
 
 /** PATCH /MM-enrollments/{enrollmentId} */

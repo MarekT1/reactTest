@@ -6,13 +6,9 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
-import FormControl from '@mui/material/FormControl'
 import Grid from '@mui/material/Grid'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
-import InputLabel from '@mui/material/InputLabel'
-import MenuItem from '@mui/material/MenuItem'
-import Select, { type SelectChangeEvent } from '@mui/material/Select'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -23,13 +19,10 @@ import {
   isMmEnrollmentEditable,
   isMmProductCode,
   mmEnrollmentsQueryKey,
-  mmEnrollmentStatuses,
-  mockLoyaltyNumberSample,
   patchMmEnrollment,
   resendMmEnrollment,
   sampleAccountId,
   sampleProductCode,
-  setMockEnrollmentStatus,
   type MmEnrollment,
   type MmEnrollmentStatus,
 } from './mmEnrollmentApi'
@@ -275,30 +268,16 @@ function isChanged(values: MmFormValues, email: string) {
   return values.loyaltyNumber.trim() !== '' || values.email.trim() !== email
 }
 
-function withCurrent(choices: string[], current: string) {
-  if (current !== '' && !choices.includes(current)) {
-    return [...choices, current]
-  }
-  return choices
-}
-
-function loyaltyNumberChoices(current: string) {
-  return withCurrent(['', mockLoyaltyNumberSample], current)
-}
-
 function enrollmentFormValues(enrollment: MmEnrollment): MmFormValues {
   return { loyaltyNumber: '', email: enrollment.mmEmail }
 }
 
 export function MmWidget({
-  accountId: initialAccountId = sampleAccountId,
-  productCode: initialProductCode = sampleProductCode,
-  loyaltyNumber: initialLoyaltyNumber = '',
+  accountId = sampleAccountId,
+  productCode = sampleProductCode,
+  loyaltyNumber = '',
 }: MmWidgetProps) {
   const queryClient = useQueryClient()
-  const [accountId, setAccountId] = useState(initialAccountId)
-  const [productCode, setProductCode] = useState(initialProductCode)
-  const [loyaltyNumber, setLoyaltyNumber] = useState(initialLoyaltyNumber)
   const [savedLoyaltyNumbers, setSavedLoyaltyNumbers] = useState<Record<string, string>>({})
   const isMmAccount = isMmProductCode(productCode)
   const enrollmentsQuery = useQuery({
@@ -383,32 +362,6 @@ export function MmWidget({
     : false
   const hasFieldErrors = Boolean(errors.loyaltyNumber || errors.email)
   const saveDisabled = !changed || hasFieldErrors || patchMutation.isPending
-
-  const handleAccountId = (nextAccountId: string) => {
-    setSaveError(null)
-    setFocusedField(null)
-    setEditing(false)
-    setAccountId(nextAccountId)
-  }
-
-  const handleProductCode = (nextProductCode: string) => {
-    setSaveError(null)
-    setFocusedField(null)
-    setEditing(false)
-    setProductCode(nextProductCode)
-  }
-
-  const handlePreviewStatus = (status: MmEnrollmentStatus) => {
-    setMockEnrollmentStatus(accountId, status)
-    void refreshEnrollment()
-  }
-
-  const handleLoyaltyNumber = (nextLoyaltyNumber: string) => {
-    setSaveError(null)
-    setFocusedField(null)
-    setEditing(false)
-    setLoyaltyNumber(nextLoyaltyNumber)
-  }
 
   const handleCancel = () => {
     if (!enrollment) {
@@ -500,101 +453,9 @@ export function MmWidget({
 
   return (
     <Box sx={{ p: 0 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'space-between',
-          gap: 1,
-          mb: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flexWrap: 'wrap' }}>
-          <Typography variant="subtitle2" component="span">
-            MM widget
-          </Typography>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel id="mm-account-id-label" shrink>
-              Account
-            </InputLabel>
-            <Select
-              labelId="mm-account-id-label"
-              label="Account"
-              value={accountId}
-              displayEmpty
-              notched
-              renderValue={(value) => (value === '' ? 'Empty' : value)}
-              onChange={(event: SelectChangeEvent) => handleAccountId(event.target.value)}
-            >
-              {withCurrent(['', sampleAccountId], accountId).map((value) => (
-                <MenuItem key={value || 'empty-account'} value={value}>
-                  {value === '' ? 'Empty' : value}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="mm-product-code-label" shrink>
-              Product
-            </InputLabel>
-            <Select
-              labelId="mm-product-code-label"
-              label="Product"
-              value={productCode}
-              displayEmpty
-              notched
-              renderValue={(value) => (value === '' ? 'Empty' : value)}
-              onChange={(event: SelectChangeEvent) => handleProductCode(event.target.value)}
-            >
-              {withCurrent(['', sampleProductCode], productCode).map((value) => (
-                <MenuItem key={value || 'empty-product'} value={value}>
-                  {value === '' ? 'Empty' : value}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="mm-loyalty-number-label" shrink>
-              Loyalty number
-            </InputLabel>
-            <Select
-              labelId="mm-loyalty-number-label"
-              label="Loyalty number"
-              value={loyaltyNumber}
-              displayEmpty
-              notched
-              renderValue={(value) => (value === '' ? 'Empty' : value)}
-              onChange={(event: SelectChangeEvent) => handleLoyaltyNumber(event.target.value)}
-            >
-              {loyaltyNumberChoices(loyaltyNumber).map((value) => (
-                <MenuItem key={value || 'empty-loyalty'} value={value}>
-                  {value === '' ? 'Empty' : value}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          {enrollment ? (
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel id="mm-test-status-label">Test status</InputLabel>
-              <Select
-                labelId="mm-test-status-label"
-                label="Test status"
-                value={enrollment.status}
-                onChange={(event: SelectChangeEvent) =>
-                  handlePreviewStatus(event.target.value as MmEnrollmentStatus)
-                }
-                disabled={patchMutation.isPending}
-              >
-                {mmEnrollmentStatuses.map((status) => (
-                  <MenuItem key={status} value={status}>
-                    {status}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          ) : null}
-        </Box>
-      </Box>
+      <Typography variant="subtitle2" component="div" sx={{ mb: 2 }}>
+        MM widget
+      </Typography>
       {!isMmAccount ? (
         <Typography variant="body2">Account is not MM account</Typography>
       ) : null}
