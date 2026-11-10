@@ -243,7 +243,8 @@ function MNumberNote({ children }: { children: string }) {
       role="note"
       sx={{
         mt: 0,
-        height: 24,
+        minHeight: 24,
+        height: 'auto',
         width: 'fit-content',
         maxWidth: '100%',
         display: 'flex',
@@ -251,15 +252,18 @@ function MNumberNote({ children }: { children: string }) {
         boxSizing: 'border-box',
         gap: 0.5,
         px: '8px',
+        py: '4px',
         border: 'none',
         borderTop: 'none',
         borderRadius: '4px',
-        bgcolor: '#FFE0B2',
+        bgcolor: '#ECF3FB',
         color: '#E65100',
       }}
     >
-      <WarningAmberIcon sx={{ fontSize: 14, color: '#F9A825' }} />
-      <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px' }}>{children}</Typography>
+      <WarningAmberIcon sx={{ fontSize: 14, color: '#F9A825', flexShrink: 0 }} />
+      <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', minWidth: 0 }}>
+        {children}
+      </Typography>
     </Box>
   )
 }
