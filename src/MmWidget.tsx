@@ -46,8 +46,8 @@ const loyaltyNumberRules: RegisterOptions<MmFormValues, 'loyaltyNumber'> = {
     if (loyaltyNumber === '') {
       return 'M Number is required'
     }
-    if (!/^\d+$/.test(loyaltyNumber)) {
-      return 'M Number must be a number'
+    if (loyaltyNumber.length !== 15) {
+      return 'M Number must be 15 characters'
     }
     return true
   },
@@ -170,7 +170,6 @@ function ClearableField({
   onClear,
   onFocus,
   onBlurField,
-  inputMode,
 }: {
   id: string
   label: string
@@ -180,7 +179,6 @@ function ClearableField({
   onClear: () => void
   onFocus: () => void
   onBlurField: () => void
-  inputMode?: 'numeric'
 }) {
   const { onBlur, ref, ...field } = registration
   return (
@@ -212,7 +210,6 @@ function ClearableField({
             ) : undefined,
           },
           htmlInput: {
-            inputMode,
             onFocus,
             onBlur: (event: FocusEvent<HTMLInputElement>) => {
               void onBlur(event)
@@ -227,9 +224,21 @@ function ClearableField({
 
 function FieldMessage({ children }: { children?: string }) {
   return (
-    <Box sx={{ height: 24, display: 'flex', alignItems: 'center' }}>
+    <Box
+      sx={{
+        minHeight: 24,
+        height: 'auto',
+        maxWidth: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        boxSizing: 'border-box',
+        py: '4px',
+      }}
+    >
       {children ? (
-        <Typography sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'error.main' }}>
+        <Typography
+          sx={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'error.main', minWidth: 0 }}
+        >
           {children}
         </Typography>
       ) : null}
@@ -505,18 +514,19 @@ export function MmWidget({
                     onBlurField={() =>
                       setFocusedField((current) => (current === 'loyaltyNumber' ? null : current))
                     }
-                    inputMode="numeric"
                   />
                 ) : (
                   <ReadOnlyValue label="M Number" value={displayedLoyaltyNumber} />
                 )}
-                {editing && !errors.loyaltyNumber?.message ? (
-                  <MNumberNote>This number cannot be edited after saving</MNumberNote>
-                ) : !editing && loyaltyNumberFromExternal ? (
+                {editing ? (
+                  errors.loyaltyNumber?.message ? (
+                    <FieldMessage>{errors.loyaltyNumber.message}</FieldMessage>
+                  ) : (
+                    <MNumberNote>This number cannot be edited after saving</MNumberNote>
+                  )
+                ) : loyaltyNumberFromExternal ? (
                   <MNumberNote>This number comes from an external service</MNumberNote>
-                ) : (
-                  <FieldMessage>{editing ? errors.loyaltyNumber?.message : undefined}</FieldMessage>
-                )}
+                ) : null}
               </Grid>
               <Grid size={8} sx={{ minWidth: 0 }}>
                 {editing ? (
@@ -535,7 +545,7 @@ export function MmWidget({
                 ) : (
                   <ReadOnlyValue label="Enrollment email" value={enrollment.mmEmail} />
                 )}
-                <FieldMessage>{editing ? errors.email?.message : undefined}</FieldMessage>
+                {editing ? <FieldMessage>{errors.email?.message}</FieldMessage> : null}
               </Grid>
               <Grid size={4} sx={{ minWidth: 0 }}>
                 <Box aria-hidden sx={{ ...fieldLabelSx, visibility: 'hidden' }}>

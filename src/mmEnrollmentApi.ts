@@ -76,8 +76,8 @@ export async function patchMmEnrollment(
   if (loyaltyNumberSaved.has(enrollmentId)) {
     throw new Error('Loyalty number cannot be edited after it is set')
   }
-  if (!/^\d+$/.test(payload.loyaltyNumber)) {
-    throw new Error('Loyalty number must be a number')
+  if (payload.loyaltyNumber.length !== 15) {
+    throw new Error('Loyalty number must be 15 characters')
   }
   if (!emailPattern.test(payload.email)) {
     throw new Error('Email must be valid')
