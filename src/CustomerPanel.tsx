@@ -22,6 +22,7 @@ import 'dayjs/locale/en-gb'
 import { useState } from 'react'
 import { DatePicker } from './DatePicker'
 import { DateRangePicker } from './DateRangePicker'
+import { EmailGadget } from './EmailGadget'
 import { getDefaultDateRange } from './dateRange'
 import { InfoCard } from './InfoCard'
 import { MmWidget } from './MmWidget'
@@ -161,6 +162,8 @@ export function CustomerPanel() {
           </Box>
         </Box>
       </Box>
+
+      <EmailGadget />
 
       <MmWidget accountId="24018" productCode="MMPRODUCT1" />
 
